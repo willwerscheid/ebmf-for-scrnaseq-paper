@@ -42,7 +42,7 @@ do_ebmf_fits <- function(pp.dat, K, folder.name, maxiter = 500) {
       )
   }
 
-  snmf.fl <- snmfl.fl %>%
+  snmf.fl <- snmf.fl %>%
     flash.backfit(maxiter = maxiter, verbose = 3)
 
   t1 <- Sys.time()
@@ -71,7 +71,7 @@ do_ebmf_fits <- function(pp.dat, K, folder.name, maxiter = 500) {
       )
   }
 
-  nmf.fl <- nmfl.fl %>%
+  nmf.fl <- nmf.fl %>%
     flash.backfit(maxiter = maxiter, verbose = 3)
 
   t1 <- Sys.time()
