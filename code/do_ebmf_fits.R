@@ -51,6 +51,7 @@ do_ebmf_fits <- function(pp.dat, K, folder.name, maxiter = 500) {
   snmf.t <- t1 - t0
 
   saveRDS(list(fl = snmf.fl, t = snmf.t), paste0("./output/", folder.name, "/snmf.rds"))
+  rm(snmf.fl)
 
   # NMF fit.
   t0 <- Sys.time()
@@ -81,4 +82,5 @@ do_ebmf_fits <- function(pp.dat, K, folder.name, maxiter = 500) {
   nmf.t <- t1 - t0
 
   saveRDS(list(fl = nmf.fl, t = nmf.t), paste0("./output/", folder.name, "/nmf.rds"))
+  rm(nmf.fl)
 }
