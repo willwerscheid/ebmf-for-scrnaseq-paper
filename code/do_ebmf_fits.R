@@ -26,22 +26,20 @@ do_ebmf_fits <- function(pp.dat, K, folder.name, maxiter = 500) {
   t0 <- Sys.time()
   snmf.fl <- init.fl %>%
     flash.add.greedy(
-      Kmax = min(K, 10),
+      Kmax = min(K - 1, 10),
       ebnm.fn = c(ebnm::ebnm_point_laplace, ebnm::ebnm_point_exponential),
       init.fn = function(f) init.fn.default(f, dim.signs = c(0, 1))
     )
 
-  K.remain <- K - 10
-  while(K.remain > 0) {
+  while (snmf.fl$n.factors < K) {
     snmf.fl <- snmf.fl %>%
       flash.backfit(maxiter = 10, verbose = 3) %>%
       flash.add.greedy(
-        Kmax = K.remain,
+        Kmax = min(K - snmf.fl$n.factors, 10),
         ebnm.fn = c(ebnm::ebnm_point_laplace, ebnm::ebnm_point_exponential),
         init.fn = function(f) init.fn.default(f, dim.signs = c(0, 1)),
         verbose = 1
       )
-    K.remain <- K.remain - 10
   }
 
   snmf.fl <- snmfl.fl %>%
@@ -57,22 +55,20 @@ do_ebmf_fits <- function(pp.dat, K, folder.name, maxiter = 500) {
   t0 <- Sys.time()
   nmf.fl <- init.fl %>%
     flash.add.greedy(
-      Kmax = min(K, 10),
+      Kmax = min(K - 1, 10),
       ebnm.fn = ebnm::ebnm_point_exponential,
       init.fn = function(f) init.fn.default(f, dim.signs = c(1, 1))
     )
 
-  K.remain <- K - 10
-  while(K.remain > 0) {
+  while (nmf.fl$n.factors < K) {
     nmf.fl <- nmf.fl %>%
       flash.backfit(maxiter = 10, verbose = 3) %>%
       flash.add.greedy(
-        Kmax = K.remain,
+        Kmax = min(K - nmf.fl$n.factors, 10),
         ebnm.fn = ebnm::ebnm_point_exponential,
         init.fn = function(f) init.fn.default(f, dim.signs = c(1, 1)),
         verbose = 1
       )
-    K.remain <- K.remain - 10
   }
 
   nmf.fl <- nmfl.fl %>%
