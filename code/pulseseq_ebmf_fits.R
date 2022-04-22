@@ -1,7 +1,7 @@
 library(Matrix)
 library(flashier)
 
-source("./code/do_ebmf_fits.R")
+source("./code/do_ebmf_fit.R")
 
 pulseseq <- readRDS("./data/pulseseq_pp.rds")
 
