@@ -51,6 +51,6 @@ do_ebmf_fit <- function(pp.dat, K, nonnegative, file.name, maxiter = 500) {
 
   t1 <- Sys.time()
 
-  saveRDS(list(fl = fl, t = t1 - t0), paste0("./", file.name))
+  saveRDS(list(fl = fl, t = t1 - t0), paste0("./output/", file.name))
   return(TRUE)
 }
