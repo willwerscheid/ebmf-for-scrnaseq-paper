@@ -1,4 +1,5 @@
 # datfile must be list including counts, pc, sf, and var.genes
+# packages needed: fastTopics, RcppML
 
 do_fit <- function(datfile, method, K, select.genes, outfile) {
   if (method == "fasttopics") {
@@ -22,6 +23,7 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
   }
 
   rm(pp.dat)
+  dat <- as(dat, "dgCMatrix")
 
   t0 <- Sys.time()
   fit <- fastTopics::fit_poisson_nmf(dat, K, numiter = 100)
