@@ -126,5 +126,8 @@ fit_ebmf <- function(datfile, K, select.genes, outfile, nonnegative) {
 
   t1 <- Sys.time()
 
+  fl$sampler <- NULL
+  fl$flash.fit <- NULL
+
   saveRDS(list(t = t1 - t0, fit = fl), outfile)
 }
