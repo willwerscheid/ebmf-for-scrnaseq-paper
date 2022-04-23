@@ -2,7 +2,7 @@ preprocess <- function(dat, genelist = NULL, min.nzcts = 10) {
   size.factors <- Matrix::colSums(dat)
   size.factors <- size.factors / mean(size.factors)
   lunpc <- max(1 / min(size.factors) - 1 / max(size.factors), 1)
-  gene_cts <- rowSums(dat > 0)
+  gene_cts <- Matrix::rowSums(dat > 0)
 
   if (!is.null(genelist)) {
     rownames(dat) <- genelist

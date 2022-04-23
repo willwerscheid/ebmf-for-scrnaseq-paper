@@ -8,7 +8,7 @@
 #SBATCH --time=36:00:00
 
 # This script allocates computing resources (CPUs, memory), loads R,
-# and runs fit_one_model.R. 
+# and runs fit_one_model.R.
 
 # Get the command-line arguments.
 DATFILE=${1}
@@ -23,7 +23,7 @@ echo select.genes=${SELGENES}
 echo outfile=${OUTFILE}
 
 # For reproducibility, I add version numbers to the "module load" calls.
-module load R/3.5.1
+module load R/3.6.1
 
 # Run the R script.
 echo "Running fit_one_model.R"
