@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Jason Willwerscheid" />
+
+
+<title>Visualizations</title>
+
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<link rel="icon" href="https://github.com/workflowr/workflowr-assets/raw/master/img/reproducible.png">
+<!-- Add a small amount of space between sections. -->
+<style type="text/css">
+div.section {
+  padding-top: 12px;
+}
+</style>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.tab('show');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">ebmf-for-scrnaseq-paper</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="about.html">About</a>
+</li>
+<li>
+  <a href="license.html">License</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Visualizations</h1>
+<h4 class="author">Jason Willwerscheid</h4>
+<h4 class="date">4/25/2022</h4>
+
+</div>
+
+
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-report" data-toggle="collapse" data-target="#workflowr-report">
+<span class="glyphicon glyphicon-list" aria-hidden="true"></span> workflowr <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span>
+</button>
+</p>
+<div id="workflowr-report" class="collapse">
+<ul class="nav nav-tabs">
+<li class="active">
+<a data-toggle="tab" href="#summary">Summary</a>
+</li>
+<li>
+<a data-toggle="tab" href="#checks"> Checks <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> </a>
+</li>
+<li>
+<a data-toggle="tab" href="#versions">Past versions</a>
+</li>
+</ul>
+<div class="tab-content">
+<div id="summary" class="tab-pane fade in active">
+<p>
+<strong>Last updated:</strong> 2022-04-27
+</p>
+<p>
+<strong>Checks:</strong> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 7 <span class="glyphicon glyphicon-exclamation-sign text-danger" aria-hidden="true"></span> 0
+</p>
+<p>
+<strong>Knit directory:</strong> <code>ebmf-for-scrnaseq-paper/</code> <span class="glyphicon glyphicon-question-sign" aria-hidden="true" title="This is the local directory in which the code in this file was executed."> </span>
+</p>
+<p>
+This reproducible <a href="http://rmarkdown.rstudio.com">R Markdown</a> analysis was created with <a
+  href="https://github.com/jdblischak/workflowr">workflowr</a> (version 1.6.2). The <em>Checks</em> tab describes the reproducibility checks that were applied when the results were created. The <em>Past versions</em> tab lists the development history.
+</p>
+<hr>
+</div>
+<div id="checks" class="tab-pane fade">
+<div id="workflowr-checks" class="panel-group">
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguptodate"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>R Markdown file:</strong> up-to-date </a>
+</p>
+</div>
+<div id="strongRMarkdownfilestronguptodate" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great! Since the R Markdown file has been committed to the Git repository, you know the exact version of the code that produced these results.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongEnvironmentstrongempty"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Environment:</strong> empty </a>
+</p>
+</div>
+<div id="strongEnvironmentstrongempty" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! The global environment was empty. Objects defined in the global environment can affect the analysis in your R Markdown file in unknown ways. For reproduciblity it’s best to always run the code in an empty environment.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSeedstrongcodesetseed20220420code"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Seed:</strong> <code>set.seed(20220420)</code> </a>
+</p>
+</div>
+<div id="strongSeedstrongcodesetseed20220420code" class="panel-collapse collapse">
+<div class="panel-body">
+<p>The command <code>set.seed(20220420)</code> was run prior to running the code in the R Markdown file. Setting a seed ensures that any results that rely on randomness, e.g. subsampling or permutations, are reproducible.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSessioninformationstrongrecorded"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Session information:</strong> recorded </a>
+</p>
+</div>
+<div id="strongSessioninformationstrongrecorded" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Recording the operating system, R version, and package versions is critical for reproducibility.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongCachestrongnone"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Cache:</strong> none </a>
+</p>
+</div>
+<div id="strongCachestrongnone" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Nice! There were no cached chunks for this analysis, so you can be confident that you successfully produced the results during this run.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongFilepathsstrongrelative"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>File paths:</strong> relative </a>
+</p>
+</div>
+<div id="strongFilepathsstrongrelative" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Using relative paths to the files within your workflowr project makes it easier to run your code on other machines.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomwillwerscheidebmfforscrnaseqpapertree78ce9403b5767f2837fc92b243a7e73734e185c7targetblank78ce940a"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Repository version:</strong> <a href="https://github.com/willwerscheid/ebmf-for-scrnaseq-paper/tree/78ce9403b5767f2837fc92b243a7e73734e185c7" target="_blank">78ce940</a> </a>
+</p>
+</div>
+<div id="strongRepositoryversionstrongahrefhttpsgithubcomwillwerscheidebmfforscrnaseqpapertree78ce9403b5767f2837fc92b243a7e73734e185c7targetblank78ce940a" class="panel-collapse collapse">
+<div class="panel-body">
+<p>
+Great! You are using Git for version control. Tracking code development and connecting the code version to the results is critical for reproducibility.
+</p>
+<p>
+The results in this page were generated with repository version <a href="https://github.com/willwerscheid/ebmf-for-scrnaseq-paper/tree/78ce9403b5767f2837fc92b243a7e73734e185c7" target="_blank">78ce940</a>. See the <em>Past versions</em> tab to see a history of the changes made to the R Markdown and HTML files.
+</p>
+<p>
+Note that you need to be careful to ensure that all relevant files for the analysis have been committed to Git prior to generating the results (you can use <code>wflow_publish</code> or <code>wflow_git_commit</code>). workflowr only checks the R Markdown file, but you know if there are other scripts or data files that it depends on. Below is the status of the Git repository when the results were generated:
+</p>
+<pre><code>
+Ignored files:
+    Ignored:    .Rhistory
+    Ignored:    .Rproj.user/
+
+Untracked files:
+    Untracked:  code/viz.R
+    Untracked:  data/pijuan-sala-mean-expr.rds
+    Untracked:  data/pijuan-sala.rds
+    Untracked:  output/pijuan-sel-nmf-k=20.Rout
+    Untracked:  output/pijuan-sel-nmf-k=20.rds
+    Untracked:  output/pijuan-sel-nmf-k=30.Rout
+    Untracked:  output/pijuan-sel-nmf-k=30.rds
+    Untracked:  output/pijuan-sel-nmf-k=40.Rout
+    Untracked:  output/pijuan-sel-nmf-k=40.rds
+    Untracked:  output/pijuan-sel-nnebmf-k=20.Rout
+    Untracked:  output/pijuan-sel-nnebmf-k=20.rds
+    Untracked:  output/pijuan-sel-nnebmf-k=30.Rout
+    Untracked:  output/pijuan-sel-nnebmf-k=30.rds
+    Untracked:  output/pijuan-sel-nnebmf-k=40.Rout
+    Untracked:  output/pijuan-sel-nnebmf-k=40.rds
+    Untracked:  output/pijuan-sel-snnebmf-k=20.Rout
+    Untracked:  output/pijuan-sel-snnebmf-k=20.rds
+    Untracked:  output/pijuan-sel-snnebmf-k=30.Rout
+    Untracked:  output/pijuan-sel-snnebmf-k=30.rds
+    Untracked:  output/pijuan-sel-snnebmf-k=40.Rout
+    Untracked:  output/pijuan-sel-snnebmf-k=40.rds
+    Untracked:  output/pijuan-sel-topics-k=20.Rout
+    Untracked:  output/pijuan-sel-topics-k=20.rds
+    Untracked:  output/pijuan-sel-topics-k=30.Rout
+    Untracked:  output/pijuan-sel-topics-k=30.rds
+    Untracked:  output/pijuan-sel-topics-k=40.Rout
+    Untracked:  output/pijuan-sel-topics-k=40.rds
+
+Unstaged changes:
+    Modified:   code/README.md
+    Modified:   data-raw/pijuan-sala.R
+
+</code></pre>
+<p>
+Note that any generated files, e.g. HTML, png, CSS, etc., are not included in this status report because it is ok for generated content to have uncommitted changes.
+</p>
+</div>
+</div>
+</div>
+</div>
+<hr>
+</div>
+<div id="versions" class="tab-pane fade">
+
+<p>
+These are the previous versions of the repository in which changes were made to the R Markdown (<code>analysis/viz.Rmd</code>) and HTML (<code>docs/viz.html</code>) files. If you’ve configured a remote Git repository (see <code>?wflow_git_remote</code>), click on the hyperlinks in the table below to view the files as they were in that past version.
+</p>
+<div class="table-responsive">
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th>
+File
+</th>
+<th>
+Version
+</th>
+<th>
+Author
+</th>
+<th>
+Date
+</th>
+<th>
+Message
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/willwerscheid/ebmf-for-scrnaseq-paper/blob/78ce9403b5767f2837fc92b243a7e73734e185c7/analysis/viz.Rmd" target="_blank">78ce940</a>
+</td>
+<td>
+Jason Willwerscheid
+</td>
+<td>
+2022-04-27
+</td>
+<td>
+wflow_publish(“analysis/viz.Rmd”)
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+</div>
+</div>
+</div>
+<div id="heatmaps" class="section level2">
+<h2>Heatmaps</h2>
+<p>Main idea: demonstrate the clear difference in sparsity (and interpretability) between vanilla NMF and empirical Bayes NMF.</p>
+<pre class="r"><code>nnebmf &lt;- readRDS(&quot;./output/pijuan-sel-nnebmf-k=40.rds&quot;)
+nmf &lt;- readRDS(&quot;./output/pijuan-sel-nmf-k=40.rds&quot;)
+
+fl &lt;- nnebmf$fit
+FF &lt;- fl$F.pm
+FF &lt;- scale(FF, center = FALSE, scale = apply(FF, 2, max))
+FF &lt;- FF[, -1]
+colnames(FF) &lt;- paste0(&quot;k&quot;, 1:ncol(FF))
+
+# Use same cell type order as paper.
+cell.type &lt;- sapply(strsplit(rownames(FF), &quot;_&quot;), `[[`, 6)
+cell.type &lt;- str_replace(cell.type, &quot;Haematoendothelial&quot;, &quot;Haematoendo.&quot;)
+cell.type &lt;- factor(cell.type, levels = sort(unique(cell.type))[c(
+  5, 11, 30, 27, 8, 19, 21, 6, 28, 33, 31, 24, 23, 4, 1, 17, 22, 20, 2, 3, 12:14,
+  10, 26, 32, 7, 25, 18, 34, 36, 16, 15, 29, 37,
+  9, 35
+)])
+tomato &lt;- factor(sapply(strsplit(rownames(FF), &quot;_&quot;), `[[`, 4))
+
+# Downsample the number of cells and sort them using tSNE.
+set.seed(666)
+cell.idx &lt;- numeric(0)
+cell.types &lt;- levels(cell.type)
+cell.types &lt;- setdiff(cell.types, c(&quot;Doublet&quot;, &quot;Stripped&quot;))
+for (i in 1:length(cell.types)) {
+  which.idx &lt;- which(cell.type == cell.types[i])
+  # Downsample common cell types.
+  if (length(which.idx) &gt; 100) {
+    which.idx &lt;- sample(which.idx, 100)
+  }
+  # Don&#39;t include rare cell types.
+  if (length(which.idx) &gt; 20) {
+    # Sort using tsne.
+    tsne.res &lt;- Rtsne::Rtsne(
+      FF[which.idx, ],
+      dims = 1,
+      pca = FALSE,
+      normalize = FALSE,
+      perplexity = min(100, floor((length(which.idx) - 1) / 3) - 1),
+      theta = 0.1,
+      max_iter = 1000,
+      eta = 200,
+      check_duplicates = FALSE
+    )$Y[, 1]
+    which.idx &lt;- which.idx[order(tsne.res)]
+    cell.idx &lt;- c(cell.idx, which.idx)
+  }
+}
+
+cell.type &lt;- cell.type[cell.idx]
+tomato &lt;- tomato[cell.idx]
+cell.type &lt;- droplevels(cell.type)
+
+ebmf.FF &lt;- fl$F.pm[cell.idx, order(-fl$pve)]
+nmf.FF &lt;- (t(nmf$fit$h) %*% diag(sqrt(nmf$fit$d)))[cell.idx, ]
+
+make.heatmap.tib &lt;- function(FF) {
+  tib &lt;- as_tibble(scale(FF, center = FALSE, scale = apply(FF, 2, max))) %&gt;%
+    mutate(Cell.type = cell.type, Tomato = tomato) %&gt;%
+    arrange(Cell.type, Tomato) %&gt;%
+    mutate(Cell.idx = row_number())
+
+  tib &lt;- tib %&gt;%
+    pivot_longer(
+      -c(Cell.idx, Cell.type, Tomato),
+      names_to = &quot;Factor&quot;,
+      values_to = &quot;Loading&quot;,
+      values_drop_na = TRUE
+    ) %&gt;%
+    mutate(Factor = as.numeric(str_extract(Factor, &quot;[0-9]+&quot;)))
+  
+  return(tib)
+}
+
+ebmf.tib &lt;- make.heatmap.tib(ebmf.FF)
+nmf.tib &lt;- make.heatmap.tib(nmf.FF)
+heatmap.tib &lt;- ebmf.tib %&gt;% mutate(Method = &quot;EBMF&quot;) %&gt;%
+  bind_rows(nmf.tib %&gt;% mutate(Method = &quot;NMF&quot;))
+
+tib &lt;- heatmap.tib %&gt;%
+  group_by(Cell.type, Tomato, Cell.idx) %&gt;%
+  summarize()
+  
+cell_type_breaks &lt;- c(1, which(tib$Cell.type[-1] != tib$Cell.type[-nrow(tib)]))
+label_pos &lt;- cell_type_breaks / 2 + c(cell_type_breaks[-1], nrow(tib)) / 2
+tomato_breaks &lt;- which(tib$Tomato[-1] != tib$Tomato[-nrow(tib)])
+tomato_breaks &lt;- setdiff(tomato_breaks, cell_type_breaks)
+
+ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
+  geom_tile() +
+  scale_fill_gradient(low = &quot;white&quot;, high = &quot;black&quot;) +
+  labs(y = &quot;&quot;) +
+  scale_y_continuous(breaks = -label_pos,
+                     minor_breaks = NULL,
+                     labels = levels(cell.type)) +
+  theme_minimal() +
+  geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
+  geom_hline(yintercept = -tomato_breaks, size = 0.1, linetype = &quot;dashed&quot;) +
+  facet_wrap(~Method, ncol = 1) +
+  theme(legend.position = &quot;none&quot;, 
+        strip.text = element_text(size = 16))</code></pre>
+<p><img src="figure/viz.Rmd/heatmaps-1.png" width="960" style="display: block; margin: auto;" /></p>
+</div>
+<div id="structure-plots" class="section level2">
+<h2>Structure plots</h2>
+<p>Main idea: demonstrate that EBMF factors are more “robust” to the choice of <span class="math inline">\(K\)</span> than topics.</p>
+<pre class="r"><code>tm20 &lt;- readRDS(&quot;./output/pijuan-sel-topics-k=20.rds&quot;)
+tm30 &lt;- readRDS(&quot;./output/pijuan-sel-topics-k=30.rds&quot;)
+tm40 &lt;- readRDS(&quot;./output/pijuan-sel-topics-k=40.rds&quot;)
+
+ebmf20 &lt;- readRDS(&quot;./output/pijuan-sel-nnebmf-k=20.rds&quot;)
+ebmf30 &lt;- readRDS(&quot;./output/pijuan-sel-nnebmf-k=30.rds&quot;)
+ebmf40 &lt;- readRDS(&quot;./output/pijuan-sel-nnebmf-k=40.rds&quot;)
+
+subset.idx &lt;- which(cell.type %in% levels(cell.type)[14:20])
+
+grp &lt;- paste0(
+  cell.type[subset.idx],
+  ifelse(as.logical(tomato[subset.idx]), &quot; (KO)&quot;, &quot; (WT)&quot;)
+)
+grp &lt;- factor(grp, levels = sort(unique(grp))[c(4, 3, 9, 8, 1, 2, 5:7)])
+
+get.tm.FF &lt;- function(tm) {
+  tm.FF &lt;- t(scale(t(tm$fit$F), center = FALSE, scale = rowSums(tm$fit$F)))[cell.idx, ]
+  tm.FF &lt;- tm.FF[subset.idx, ]
+  return(tm.FF)
+}
+
+get.ebmf.FF &lt;- function(ebmf) {
+  ebmf.FF &lt;- (scale(ebmf$fit$F.pm, center = FALSE) %*% diag(sqrt(ebmf$fit$pve)))[cell.idx, order(-ebmf$fit$pve)]
+  ebmf.FF &lt;- ebmf.FF[subset.idx, -1]
+  return(ebmf.FF)
+}
+
+# There are only 31 usable colors, so we need to remove some factors:
+ebmf.ref.FF &lt;- get.ebmf.FF(ebmf40)
+which.factors &lt;- sort(order(-apply(ebmf.ref.FF, 2, max))[1:31])
+ebmf.ref.FF &lt;- ebmf.ref.FF[, which.factors]
+
+tm.ref.FF &lt;- get.tm.FF(tm40)
+which.factors &lt;- sort(order(-apply(tm.ref.FF, 2, max))[1:31])
+tm.ref.FF &lt;- tm.ref.FF[, which.factors]
+
+# Keep cell order the same across plots:
+ref.fit &lt;- list(L = ebmf.ref.FF, F = ebmf.ref.FF)
+class(ref.fit) &lt;- &quot;multinom_topic_model_fit&quot;
+ebmf.cell.order &lt;- NULL
+for (group in levels(grp)) {
+  i &lt;- which(grp == group)
+  if (length(i) &gt; 0)
+    y &lt;- tsne_from_topics(select_loadings(ref.fit, i), dims = 1, verbose = FALSE)
+  ebmf.cell.order &lt;- c(ebmf.cell.order, i[order(y)])
+}
+
+ref.fit &lt;- list(L = tm.ref.FF, F = tm.ref.FF)
+class(ref.fit) &lt;- &quot;multinom_topic_model_fit&quot;
+tm.cell.order &lt;- NULL
+for (group in levels(grp)) {
+  i &lt;- which(grp == group)
+  if (length(i) &gt; 0)
+    y &lt;- tsne_from_topics(select_loadings(ref.fit, i), dims = 1, verbose = FALSE)
+  tm.cell.order &lt;- c(tm.cell.order, i[order(y)])
+}
+
+do.struct.plot &lt;- function(LL, ref.FF, cell.order) {
+  topic.matches &lt;- rep(0, ncol(LL))
+  cormat &lt;- cor(LL, ref.FF)
+  for (i in 1:ncol(LL)) {
+    j &lt;- row(cormat)[which.max(cormat)]
+    k &lt;- col(cormat)[which.max(cormat)]
+    topic.matches[j] &lt;- k
+    cormat[j, ] &lt;- 0
+    cormat[, k] &lt;- 0
+  }
+
+  topic.colors &lt;- rep(&quot;#808080&quot;, ncol(LL))
+  for (i in 1:ncol(LL)) {
+    if (topic.matches[i] &gt; 0) {
+      topic.colors[i] &lt;-  as.character(glasbey.colors(32)[-1])[topic.matches[i]]
+    }
+  }
+
+  fit &lt;- list(L = LL, F = LL)
+  class(fit) &lt;- &quot;multinom_topic_model_fit&quot;
+
+  set.seed(666)
+  structure_plot(
+    fit,
+    grouping = grp,
+    colors = topic.colors,
+    topics = order(topic.matches),
+    loadings_order = cell.order,
+    gap = 10
+  ) +
+    theme(
+      legend.position = &quot;none&quot;,
+      axis.text.y = element_blank(),
+    ) +
+    labs(y = &quot;&quot;)
+}
+
+ebmf20p &lt;- do.struct.plot(get.ebmf.FF(ebmf20), ebmf.ref.FF, ebmf.cell.order) +
+  labs(title = &quot;EBMF&quot;, y = &quot;k = 20&quot;) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 16)
+  )
+ebmf30p &lt;- do.struct.plot(get.ebmf.FF(ebmf30), ebmf.ref.FF, ebmf.cell.order) +
+  labs(y = &quot;k = 30&quot;) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.y = element_text(size = 10)
+  )
+ebmf40p &lt;- do.struct.plot(get.ebmf.FF(ebmf40), ebmf.ref.FF, ebmf.cell.order) +
+  labs(y = &quot;k = 40&quot;) +
+  theme(axis.title.y = element_text(size = 10))
+
+tm20p &lt;- do.struct.plot(get.tm.FF(tm20), tm.ref.FF, tm.cell.order) +
+  labs(title = &quot;Topic Model&quot;) +
+  theme(
+    axis.text.x = element_blank(),
+    plot.title = element_text(size = 16)
+  )
+tm30p &lt;- do.struct.plot(get.tm.FF(tm30), tm.ref.FF, tm.cell.order) +
+  theme(axis.text.x = element_blank())
+tm40p &lt;- do.struct.plot(get.tm.FF(tm40), tm.ref.FF, tm.cell.order)
+
+plot_grid(
+  ebmf20p, ebmf30p, ebmf40p, tm20p, tm30p, tm40p,
+  ncol = 2,
+  byrow = FALSE,
+  rel_heights = c(1.12, 1, 1.65)
+)</code></pre>
+<p><img src="figure/viz.Rmd/structplots-1.png" width="960" style="display: block; margin: auto;" /></p>
+</div>
+<div id="volcano-plots" class="section level2">
+<h2>Volcano plots</h2>
+<p>Main idea: discuss the difference in interpretation between nonnegative and semi-nonnegative factors. Are the negative loadings interpretable/plausible? We’ll need to find a story to tell with this figure.</p>
+<pre class="r"><code>snnebmf &lt;- readRDS(&quot;./output/pijuan-sel-snnebmf-k=40.rds&quot;)
+exprmean &lt;- log10(readRDS(&quot;./data/pijuan-sala-mean-expr.rds&quot;)$var.gene.mean.expr)
+
+make.volcano.tib &lt;- function(fl, k, exprmean) {
+  tib &lt;- tibble(
+    pm = fl$L.pm[, k] / max(abs(fl$L.pm[, k])),
+    z = abs(fl$L.pm[, k]) / pmax(sqrt(.Machine$double.eps), fl$L.psd[, k]),
+    SYMBOL = rownames(fl$L.pm),
+    exprmean = exprmean
+  ) %&gt;%
+    mutate(z.thresh = ifelse(abs(pm) &gt; .1, z, 0)) %&gt;%
+    mutate(SYMBOL = ifelse(
+      z.thresh &gt; sort(z.thresh, decreasing = TRUE)[9] |
+        (pm &gt; sort(pm, decreasing = TRUE)[9]) |
+        (pm &lt; 0 &amp; pm &lt; sort(pm, decreasing = FALSE)[6]), 
+      SYMBOL, 
+      &quot;&quot;
+    )) 
+}
+
+do.volcano.plot &lt;- function(nn.fl, snn.fl, kset, exprmean, k.labels) {
+  tib &lt;- tibble()
+  for (i in 1:length(kset)) {
+    k &lt;- kset[i]
+    snn.k &lt;- which.max(abs(cor(snn.fl$F.pm[, -1], nn.fl$F.pm[, k]))) + 1
+    tib &lt;- tib %&gt;%
+      bind_rows(
+        make.volcano.tib(nn.fl, k, exprmean) %&gt;% 
+          mutate(k = k.labels[i], Type = &quot;Nonnegative&quot;)
+      ) %&gt;%
+      bind_rows(
+        make.volcano.tib(snn.fl, snn.k, exprmean) %&gt;% 
+          mutate(k = k.labels[i], Type = &quot;Semi-nonnegative&quot;)
+      )
+  }
+  tib$k &lt;- factor(tib$k, levels = k.labels)
+  
+  plt &lt;- ggplot(tib, aes(x = pm, y = z, label = SYMBOL, color = exprmean)) +
+    geom_point() +
+    scale_color_gradient2(low = &quot;deepskyblue&quot;, mid = &quot;gold&quot;, high = &quot;orangered&quot;,
+                          na.value = &quot;gainsboro&quot;,
+                          midpoint = mean(range(exprmean))) +
+    scale_y_continuous(trans = &quot;log1p&quot;, breaks = 10^(1:floor(log10(max(tib$z))))) +
+    geom_text_repel(color = &quot;darkgray&quot;,size = 2.25, fontface = &quot;italic&quot;,
+                    segment.color = &quot;darkgray&quot;, segment.size = 0.25,
+                    min.segment.length = 0, na.rm = TRUE, max.overlaps = 20) +
+    theme_minimal() +
+    labs(
+      x = &quot;Gene Loading (posterior mean)&quot;,
+      y = &quot;|z-score|&quot;,
+      color = &quot;Mean Expression (log10)&quot;,
+    ) +
+    theme(legend.position = &quot;bottom&quot;) +
+    facet_grid(
+      rows = vars(k), 
+      cols = vars(Type),
+      scales = &quot;free_x&quot;,
+      space = &quot;free_x&quot;
+    ) +
+    theme(
+      strip.text.x = element_text(size = 16),
+      strip.text.y = element_text(size = 10, angle = 0),
+      panel.spacing = unit(2, &quot;lines&quot;)
+    )
+
+  return(plt)
+}
+
+kset &lt;- order(-nnebmf$fit$pve)[c(2, 7, 24)]
+k.labels &lt;- c(&quot;Eryth (2)&quot;, &quot;Other WT (7)&quot;, &quot;Epi WT (24)&quot;)
+do.volcano.plot(nnebmf$fit, snnebmf$fit, kset, exprmean, k.labels)</code></pre>
+<p><img src="figure/viz.Rmd/volcano.code-1.png" width="768" style="display: block; margin: auto;" /></p>
+<br>
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-sessioninfo" data-toggle="collapse" data-target="#workflowr-sessioninfo" style="display: block;">
+<span class="glyphicon glyphicon-wrench" aria-hidden="true"></span> Session information
+</button>
+</p>
+<div id="workflowr-sessioninfo" class="collapse">
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>R version 3.5.3 (2019-03-11)
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+Running under: macOS Mojave 10.14.6
+
+Matrix products: default
+BLAS: /Library/Frameworks/R.framework/Versions/3.5/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/3.5/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] ggrepel_0.9.1      cowplot_1.1.1      fastTopics_0.6-101 Polychrome_1.4.0  
+ [5] forcats_0.5.1      stringr_1.4.0      dplyr_1.0.8        purrr_0.3.4       
+ [9] readr_2.0.0        tidyr_1.2.0        tibble_3.1.6       ggplot2_3.3.5     
+[13] tidyverse_1.3.1    workflowr_1.6.2   
+
+loaded via a namespace (and not attached):
+  [1] Rtsne_0.15           colorspace_2.0-3     ellipsis_0.3.2      
+  [4] rprojroot_2.0.2      fs_1.5.0             rstudioapi_0.13     
+  [7] farver_2.1.0         MatrixModels_0.4-1   fansi_1.0.2         
+ [10] lubridate_1.7.10     xml2_1.3.2           splines_3.5.3       
+ [13] knitr_1.33           jsonlite_1.8.0       mcmc_0.9-7          
+ [16] broom_0.7.6          ashr_2.2-54          dbplyr_2.1.1        
+ [19] uwot_0.1.11          compiler_3.5.3       httr_1.4.2          
+ [22] backports_1.1.3      assertthat_0.2.1     Matrix_1.3-4        
+ [25] fastmap_1.1.0        lazyeval_0.2.2       cli_3.2.0           
+ [28] later_1.3.0          htmltools_0.5.2      quantreg_5.51       
+ [31] prettyunits_1.1.1    tools_3.5.3          coda_0.19-3         
+ [34] gtable_0.3.0         glue_1.6.2           Rcpp_1.0.8          
+ [37] softImpute_1.4-1     cellranger_1.1.0     jquerylib_0.1.4     
+ [40] vctrs_0.3.8          xfun_0.29            trust_0.1-8         
+ [43] rvest_1.0.0          lifecycle_1.0.1      irlba_2.3.3         
+ [46] MASS_7.3-51.1        scales_1.1.1         hms_1.1.1           
+ [49] promises_1.2.0.1     parallel_3.5.3       SparseM_1.77        
+ [52] yaml_2.3.5           pbapply_1.5-0        sass_0.4.0          
+ [55] stringi_1.4.6        SQUAREM_2021.1       highr_0.9           
+ [58] deconvolveR_1.2-1    truncnorm_1.0-8      horseshoe_0.2.0     
+ [61] rlang_1.0.2          pkgconfig_2.0.3      ebnm_1.0-11         
+ [64] evaluate_0.14        lattice_0.20-38      invgamma_1.1        
+ [67] labeling_0.4.2       htmlwidgets_1.5.4    tidyselect_1.1.2    
+ [70] magrittr_2.0.2       R6_2.5.1             generics_0.1.2      
+ [73] DBI_1.0.0            pillar_1.7.0         haven_2.3.1         
+ [76] whisker_0.3-2        withr_2.5.0          scatterplot3d_0.3-41
+ [79] mixsqp_0.3-43        modelr_0.1.8         crayon_1.5.0        
+ [82] utf8_1.2.2           plotly_4.10.0        tzdb_0.1.1          
+ [85] rmarkdown_2.11       progress_1.2.2       grid_3.5.3          
+ [88] readxl_1.3.1         data.table_1.14.2    git2r_0.28.0        
+ [91] reprex_2.0.0         digest_0.6.29        httpuv_1.5.2        
+ [94] MCMCpack_1.4-4       RcppParallel_5.1.5   munsell_0.5.0       
+ [97] viridisLite_0.4.0    flashier_0.2.32      bslib_0.3.1         
+[100] quadprog_1.5-8      </code></pre>
+</div>
+</div>
+
+
+<!-- Adjust MathJax settings so that all math formulae are shown using
+TeX fonts only; see
+http://docs.mathjax.org/en/latest/configuration.html.  This will make
+the presentation more consistent at the cost of the webpage sometimes
+taking slightly longer to load. Note that this only works because the
+footer is added to webpages before the MathJax javascript. -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": { availableFonts: ["TeX"] }
+  });
+</script>
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
