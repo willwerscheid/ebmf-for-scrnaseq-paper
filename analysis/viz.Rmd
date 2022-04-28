@@ -113,7 +113,7 @@ tomato_breaks <- setdiff(tomato_breaks, cell_type_breaks)
 
 ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
   geom_tile() +
-  scale_fill_gradient(low = "white", high = "black") +
+  scale_fill_gradient(low = "white", high = "firebrick") +
   labs(y = "") +
   scale_y_continuous(breaks = -label_pos,
                      minor_breaks = NULL,
