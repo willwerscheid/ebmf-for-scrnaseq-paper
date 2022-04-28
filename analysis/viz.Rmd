@@ -1,0 +1,341 @@
+---
+title: "Visualizations"
+author: "Jason Willwerscheid"
+date: "4/25/2022"
+output:
+  workflowr::wflow_html:
+    code_folding: hide
+    toc: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(Polychrome)
+library(fastTopics)
+library(cowplot)
+library(ggrepel)
+```
+
+## Heatmaps
+
+Main idea: demonstrate the clear difference in sparsity (and interpretability) between vanilla NMF and empirical Bayes NMF.
+
+```{r heatmaps, fig.height=16, fig.width=10, warning=FALSE, message=FALSE}
+nnebmf <- readRDS("./output/pijuan-sel-nnebmf-k=40.rds")
+nmf <- readRDS("./output/pijuan-sel-nmf-k=40.rds")
+
+fl <- nnebmf$fit
+FF <- fl$F.pm
+FF <- scale(FF, center = FALSE, scale = apply(FF, 2, max))
+FF <- FF[, -1]
+colnames(FF) <- paste0("k", 1:ncol(FF))
+
+# Use same cell type order as paper.
+cell.type <- sapply(strsplit(rownames(FF), "_"), `[[`, 6)
+cell.type <- str_replace(cell.type, "Haematoendothelial", "Haematoendo.")
+cell.type <- factor(cell.type, levels = sort(unique(cell.type))[c(
+  5, 11, 30, 27, 8, 19, 21, 6, 28, 33, 31, 24, 23, 4, 1, 17, 22, 20, 2, 3, 12:14,
+  10, 26, 32, 7, 25, 18, 34, 36, 16, 15, 29, 37,
+  9, 35
+)])
+tomato <- factor(sapply(strsplit(rownames(FF), "_"), `[[`, 4))
+
+# Downsample the number of cells and sort them using tSNE.
+set.seed(666)
+cell.idx <- numeric(0)
+cell.types <- levels(cell.type)
+cell.types <- setdiff(cell.types, c("Doublet", "Stripped"))
+for (i in 1:length(cell.types)) {
+  which.idx <- which(cell.type == cell.types[i])
+  # Downsample common cell types.
+  if (length(which.idx) > 100) {
+    which.idx <- sample(which.idx, 100)
+  }
+  # Don't include rare cell types.
+  if (length(which.idx) > 20) {
+    # Sort using tsne.
+    tsne.res <- Rtsne::Rtsne(
+      FF[which.idx, ],
+      dims = 1,
+      pca = FALSE,
+      normalize = FALSE,
+      perplexity = min(100, floor((length(which.idx) - 1) / 3) - 1),
+      theta = 0.1,
+      max_iter = 1000,
+      eta = 200,
+      check_duplicates = FALSE
+    )$Y[, 1]
+    which.idx <- which.idx[order(tsne.res)]
+    cell.idx <- c(cell.idx, which.idx)
+  }
+}
+
+cell.type <- cell.type[cell.idx]
+tomato <- tomato[cell.idx]
+cell.type <- droplevels(cell.type)
+
+ebmf.FF <- fl$F.pm[cell.idx, order(-fl$pve)]
+nmf.FF <- (t(nmf$fit$h) %*% diag(sqrt(nmf$fit$d)))[cell.idx, ]
+
+make.heatmap.tib <- function(FF) {
+  tib <- as_tibble(scale(FF, center = FALSE, scale = apply(FF, 2, max))) %>%
+    mutate(Cell.type = cell.type, Tomato = tomato) %>%
+    arrange(Cell.type, Tomato) %>%
+    mutate(Cell.idx = row_number())
+
+  tib <- tib %>%
+    pivot_longer(
+      -c(Cell.idx, Cell.type, Tomato),
+      names_to = "Factor",
+      values_to = "Loading",
+      values_drop_na = TRUE
+    ) %>%
+    mutate(Factor = as.numeric(str_extract(Factor, "[0-9]+")))
+  
+  return(tib)
+}
+
+ebmf.tib <- make.heatmap.tib(ebmf.FF)
+nmf.tib <- make.heatmap.tib(nmf.FF)
+heatmap.tib <- ebmf.tib %>% mutate(Method = "EBMF") %>%
+  bind_rows(nmf.tib %>% mutate(Method = "NMF"))
+
+tib <- heatmap.tib %>%
+  group_by(Cell.type, Tomato, Cell.idx) %>%
+  summarize()
+  
+cell_type_breaks <- c(1, which(tib$Cell.type[-1] != tib$Cell.type[-nrow(tib)]))
+label_pos <- cell_type_breaks / 2 + c(cell_type_breaks[-1], nrow(tib)) / 2
+tomato_breaks <- which(tib$Tomato[-1] != tib$Tomato[-nrow(tib)])
+tomato_breaks <- setdiff(tomato_breaks, cell_type_breaks)
+
+ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "black") +
+  labs(y = "") +
+  scale_y_continuous(breaks = -label_pos,
+                     minor_breaks = NULL,
+                     labels = levels(cell.type)) +
+  theme_minimal() +
+  geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
+  geom_hline(yintercept = -tomato_breaks, size = 0.1, linetype = "dashed") +
+  facet_wrap(~Method, ncol = 1) +
+  theme(legend.position = "none", 
+        strip.text = element_text(size = 16))
+```
+
+## Structure plots
+
+Main idea: demonstrate that EBMF factors are more "robust" to the choice of $K$ than topics. 
+
+```{r structplots, fig.height=8, fig.width=10, message=FALSE}
+tm20 <- readRDS("./output/pijuan-sel-topics-k=20.rds")
+tm30 <- readRDS("./output/pijuan-sel-topics-k=30.rds")
+tm40 <- readRDS("./output/pijuan-sel-topics-k=40.rds")
+
+ebmf20 <- readRDS("./output/pijuan-sel-nnebmf-k=20.rds")
+ebmf30 <- readRDS("./output/pijuan-sel-nnebmf-k=30.rds")
+ebmf40 <- readRDS("./output/pijuan-sel-nnebmf-k=40.rds")
+
+subset.idx <- which(cell.type %in% levels(cell.type)[14:20])
+
+grp <- paste0(
+  cell.type[subset.idx],
+  ifelse(as.logical(tomato[subset.idx]), " (KO)", " (WT)")
+)
+grp <- factor(grp, levels = sort(unique(grp))[c(4, 3, 9, 8, 1, 2, 5:7)])
+
+get.tm.FF <- function(tm) {
+  tm.FF <- t(scale(t(tm$fit$F), center = FALSE, scale = rowSums(tm$fit$F)))[cell.idx, ]
+  tm.FF <- tm.FF[subset.idx, ]
+  return(tm.FF)
+}
+
+get.ebmf.FF <- function(ebmf) {
+  ebmf.FF <- (scale(ebmf$fit$F.pm, center = FALSE) %*% diag(sqrt(ebmf$fit$pve)))[cell.idx, order(-ebmf$fit$pve)]
+  ebmf.FF <- ebmf.FF[subset.idx, -1]
+  return(ebmf.FF)
+}
+
+# There are only 31 usable colors, so we need to remove some factors:
+ebmf.ref.FF <- get.ebmf.FF(ebmf40)
+which.factors <- sort(order(-apply(ebmf.ref.FF, 2, max))[1:31])
+ebmf.ref.FF <- ebmf.ref.FF[, which.factors]
+
+tm.ref.FF <- get.tm.FF(tm40)
+which.factors <- sort(order(-apply(tm.ref.FF, 2, max))[1:31])
+tm.ref.FF <- tm.ref.FF[, which.factors]
+
+# Keep cell order the same across plots:
+ref.fit <- list(L = ebmf.ref.FF, F = ebmf.ref.FF)
+class(ref.fit) <- "multinom_topic_model_fit"
+ebmf.cell.order <- NULL
+for (group in levels(grp)) {
+  i <- which(grp == group)
+  if (length(i) > 0)
+    y <- tsne_from_topics(select_loadings(ref.fit, i), dims = 1, verbose = FALSE)
+  ebmf.cell.order <- c(ebmf.cell.order, i[order(y)])
+}
+
+ref.fit <- list(L = tm.ref.FF, F = tm.ref.FF)
+class(ref.fit) <- "multinom_topic_model_fit"
+tm.cell.order <- NULL
+for (group in levels(grp)) {
+  i <- which(grp == group)
+  if (length(i) > 0)
+    y <- tsne_from_topics(select_loadings(ref.fit, i), dims = 1, verbose = FALSE)
+  tm.cell.order <- c(tm.cell.order, i[order(y)])
+}
+
+do.struct.plot <- function(LL, ref.FF, cell.order) {
+  topic.matches <- rep(0, ncol(LL))
+  cormat <- cor(LL, ref.FF)
+  for (i in 1:ncol(LL)) {
+    j <- row(cormat)[which.max(cormat)]
+    k <- col(cormat)[which.max(cormat)]
+    topic.matches[j] <- k
+    cormat[j, ] <- 0
+    cormat[, k] <- 0
+  }
+
+  topic.colors <- rep("#808080", ncol(LL))
+  for (i in 1:ncol(LL)) {
+    if (topic.matches[i] > 0) {
+      topic.colors[i] <-  as.character(glasbey.colors(32)[-1])[topic.matches[i]]
+    }
+  }
+
+  fit <- list(L = LL, F = LL)
+  class(fit) <- "multinom_topic_model_fit"
+
+  set.seed(666)
+  structure_plot(
+    fit,
+    grouping = grp,
+    colors = topic.colors,
+    topics = order(topic.matches),
+    loadings_order = cell.order,
+    gap = 10
+  ) +
+    theme(
+      legend.position = "none",
+      axis.text.y = element_blank(),
+    ) +
+    labs(y = "")
+}
+
+ebmf20p <- do.struct.plot(get.ebmf.FF(ebmf20), ebmf.ref.FF, ebmf.cell.order) +
+  labs(title = "EBMF", y = "k = 20") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 16)
+  )
+ebmf30p <- do.struct.plot(get.ebmf.FF(ebmf30), ebmf.ref.FF, ebmf.cell.order) +
+  labs(y = "k = 30") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.y = element_text(size = 10)
+  )
+ebmf40p <- do.struct.plot(get.ebmf.FF(ebmf40), ebmf.ref.FF, ebmf.cell.order) +
+  labs(y = "k = 40") +
+  theme(axis.title.y = element_text(size = 10))
+
+tm20p <- do.struct.plot(get.tm.FF(tm20), tm.ref.FF, tm.cell.order) +
+  labs(title = "Topic Model") +
+  theme(
+    axis.text.x = element_blank(),
+    plot.title = element_text(size = 16)
+  )
+tm30p <- do.struct.plot(get.tm.FF(tm30), tm.ref.FF, tm.cell.order) +
+  theme(axis.text.x = element_blank())
+tm40p <- do.struct.plot(get.tm.FF(tm40), tm.ref.FF, tm.cell.order)
+
+plot_grid(
+  ebmf20p, ebmf30p, ebmf40p, tm20p, tm30p, tm40p,
+  ncol = 2,
+  byrow = FALSE,
+  rel_heights = c(1.12, 1, 1.65)
+)
+```
+
+## Volcano plots
+
+Main idea: discuss the difference in interpretation between nonnegative and semi-nonnegative factors. Are the negative loadings interpretable/plausible? We'll need to find a story to tell with this figure.
+
+```{r volcano.code, fig.height=10, fig.width=8, warning=FALSE, message=FALSE}
+snnebmf <- readRDS("./output/pijuan-sel-snnebmf-k=40.rds")
+exprmean <- log10(readRDS("./data/pijuan-sala-mean-expr.rds")$var.gene.mean.expr)
+
+make.volcano.tib <- function(fl, k, exprmean) {
+  tib <- tibble(
+    pm = fl$L.pm[, k] / max(abs(fl$L.pm[, k])),
+    z = abs(fl$L.pm[, k]) / pmax(sqrt(.Machine$double.eps), fl$L.psd[, k]),
+    SYMBOL = rownames(fl$L.pm),
+    exprmean = exprmean
+  ) %>%
+    mutate(z.thresh = ifelse(abs(pm) > .1, z, 0)) %>%
+    mutate(SYMBOL = ifelse(
+      z.thresh > sort(z.thresh, decreasing = TRUE)[9] |
+        (pm > sort(pm, decreasing = TRUE)[9]) |
+        (pm < 0 & pm < sort(pm, decreasing = FALSE)[6]), 
+      SYMBOL, 
+      ""
+    )) 
+}
+
+do.volcano.plot <- function(nn.fl, snn.fl, kset, exprmean, k.labels) {
+  tib <- tibble()
+  for (i in 1:length(kset)) {
+    k <- kset[i]
+    snn.k <- which.max(abs(cor(snn.fl$F.pm[, -1], nn.fl$F.pm[, k]))) + 1
+    tib <- tib %>%
+      bind_rows(
+        make.volcano.tib(nn.fl, k, exprmean) %>% 
+          mutate(k = k.labels[i], Type = "Nonnegative")
+      ) %>%
+      bind_rows(
+        make.volcano.tib(snn.fl, snn.k, exprmean) %>% 
+          mutate(k = k.labels[i], Type = "Semi-nonnegative")
+      )
+  }
+  tib$k <- factor(tib$k, levels = k.labels)
+  
+  plt <- ggplot(tib, aes(x = pm, y = z, label = SYMBOL, color = exprmean)) +
+    geom_point() +
+    scale_color_gradient2(low = "deepskyblue", mid = "gold", high = "orangered",
+                          na.value = "gainsboro",
+                          midpoint = mean(range(exprmean))) +
+    scale_y_continuous(trans = "log1p", breaks = 10^(1:floor(log10(max(tib$z))))) +
+    geom_text_repel(color = "darkgray",size = 2.25, fontface = "italic",
+                    segment.color = "darkgray", segment.size = 0.25,
+                    min.segment.length = 0, na.rm = TRUE, max.overlaps = 20) +
+    theme_minimal() +
+    labs(
+      x = "Gene Loading (posterior mean)",
+      y = "|z-score|",
+      color = "Mean Expression (log10)",
+    ) +
+    theme(legend.position = "bottom") +
+    facet_grid(
+      rows = vars(k), 
+      cols = vars(Type),
+      scales = "free_x",
+      space = "free_x"
+    ) +
+    theme(
+      strip.text.x = element_text(size = 16),
+      strip.text.y = element_text(size = 10, angle = 0),
+      panel.spacing = unit(2, "lines")
+    )
+
+  return(plt)
+}
+
+kset <- order(-nnebmf$fit$pve)[c(2, 7, 24)]
+k.labels <- c("Eryth (2)", "Other WT (7)", "Epi WT (24)")
+do.volcano.plot(nnebmf$fit, snnebmf$fit, kset, exprmean, k.labels)
+```
+
