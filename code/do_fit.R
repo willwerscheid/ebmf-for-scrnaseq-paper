@@ -35,7 +35,7 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
 fit_nmf <- function(datfile, K, select.genes, outfile) {
   pp.dat <- readRDS(datfile)
 
-  dat <- log1p(t(t(pp.dat$counts) / pp.dat$sf / pp.dat$pc))
+  dat <- log1p(t(t(pp.dat$counts) / pp.dat$sf))
   if (select.genes) {
     dat <- dat[pp.dat$var.genes, ]
   }
@@ -69,7 +69,7 @@ fit_nn_ebmf <- function(datfile, K, select.genes, outfile) {
 fit_ebmf <- function(datfile, K, select.genes, outfile, nonnegative) {
   pp.dat <- readRDS(datfile)
 
-  dat <- log1p(t(t(pp.dat$counts) / pp.dat$sf / pp.dat$pc))
+  dat <- log1p(t(t(pp.dat$counts) / pp.dat$sf))
 
   if (select.genes) {
     dat <- dat[pp.dat$var.genes, ]
@@ -77,7 +77,7 @@ fit_ebmf <- function(datfile, K, select.genes, outfile, nonnegative) {
 
   set.seed(666)
   n <- ncol(dat)
-  min.sd <- sd(log1p(rpois(1e7, 1 / n) / pp.dat$pc / median(pp.dat$sf)))
+  min.sd <- sd(log1p(rpois(1e7, 1 / n) / median(pp.dat$sf)))
 
   rm(datfile)
 
@@ -126,7 +126,7 @@ fit_ebmf <- function(datfile, K, select.genes, outfile, nonnegative) {
 
   t1 <- Sys.time()
 
-  fl <- flash.reorder.factors(fl, c(1, order(fl$pve[-1]) + 1))
+  fl <- flash.reorder.factors(fl, c(1, order(fl$pve[-1], decreasing = TRUE) + 1))
 
   saveRDS(list(t = t1 - t0, fit = fl), outfile)
 }
