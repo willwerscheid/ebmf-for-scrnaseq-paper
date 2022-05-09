@@ -1,7 +1,7 @@
 preprocess <- function(dat, min.nzcts = 10) {
   size.factors <- Matrix::colSums(dat)
   size.factors <- size.factors / mean(size.factors)
-  lunpc <- max(1 / min(size.factors) - 1 / max(size.factors), 1)
+  pc <- 1
 
   # Use liger for most variable gene selection.
   liger.dat <- rliger::createLiger(list(dat = dat))
@@ -14,7 +14,7 @@ preprocess <- function(dat, min.nzcts = 10) {
   return(list(
     counts = dat,
     sf = size.factors,
-    pc = lunpc,
+    pc = pc,
     var.genes = intersect(liger.dat@var.genes, rownames(dat))
   ))
 }
