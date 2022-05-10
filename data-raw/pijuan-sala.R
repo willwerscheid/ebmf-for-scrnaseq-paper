@@ -1,3 +1,5 @@
+# Chimera-tal1 dataset from Pijuan-Sala et al.
+
 library(tidyverse)
 source("../code/preprocess.R")
 
@@ -17,3 +19,10 @@ colnames(dat) <- cells
 
 pp.dat <- preprocess(dat)
 saveRDS(pp.dat, "../data/pijuan-sala.rds")
+
+mean.expr <- Matrix::rowSums(pp.dat$counts) / ncol(pp.dat$counts)
+var.gene.mean.expr <- mean.expr[pp.dat$var.genes]
+saveRDS(
+  list(mean.expr = mean.expr, var.gene.mean.expr = var.gene.mean.expr),
+  "../data/pijuan-sala-mean-expr.rds"
+)
