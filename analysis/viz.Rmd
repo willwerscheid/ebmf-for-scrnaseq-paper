@@ -335,7 +335,7 @@ do.volcano.plot <- function(nn.fl, snn.fl, kset, exprmean, k.labels) {
 }
 
 kset <- order(-nnebmf$fit$pve)[c(2, 7, 24)]
-k.labels <- c("Eryth (2)", "Other WT (7)", "Epi WT (24)")
+k.labels <- c("Eryth (2)", "Other WT (7)", "Endo WT (24)")
 do.volcano.plot(nnebmf$fit, snnebmf$fit, kset, exprmean, k.labels)
 ```
 
