@@ -9,3 +9,4 @@ editor_options:
 ---
 
 [Figures.](viz.html)
+[All heatmaps.](viz_all.html)
