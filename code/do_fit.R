@@ -1,16 +1,57 @@
 # datfile must be list including counts, pc, sf, and var.genes
-# packages needed: fastTopics, RcppML
+# packages needed: RcppML, fastTopics, pCMF
 
 do_fit <- function(datfile, method, K, select.genes, outfile) {
-  if (method == "fasttopics") {
+  if (method == "nmf-log") {
+    return(fit_nmf(datfile, K, select.genes, outfile, link = "log"))
+  } else if (method == "nmf-identity") {
+    return(fit_nmf(datfile, K, select.genes, outfile, link = "identity"))
+  } else if (method == "fasttopics") {
     return(fit_fasttopics(datfile, K, select.genes, outfile))
-  } else if (method == "nmf") {
-    return(fit_nmf(datfile, K, select.genes, outfile))
-  } else if (method == "snn-ebmf") {
-    return(fit_snn_ebmf(datfile, K, select.genes, outfile))
-  } else if (method == "nn-ebmf") {
-    return(fit_nn_ebmf(datfile, K, select.genes, outfile))
+  } else if (method == "pcmf") {
+    return(fit_pcmf(datfile, K, select.genes, outfile))
+  } else if (method == "ebmf-log") {
+    return(fit_ebmf(datfile, K, select.genes, outfile, link = "log"))
+  } else if (method == "ebmf-identity") {
+    return(fit_ebmf(datfile, K, select.genes, outfile, link = "identity"))
   }
+}
+
+get_data <- function(datfile, select.genes, link) {
+  pp.dat <- readRDS(datfile)
+
+  dat <- t(t(pp.dat$counts) / pp.dat$sf)
+
+  if (select.genes) {
+    dat <- dat[pp.dat$var.genes, ]
+  }
+
+  if (link == "log") {
+    dat <- log1p(dat)
+  } else if (link == "identity") {
+    dat <- dat / apply(dat, 1, sd)
+  }
+
+  return(dat)
+}
+
+fit_nmf <- function(datfile, K, select.genes, outfile, link) {
+  dat <- get_data(datfile, select.genes, link)
+
+  t0 <- Sys.time()
+  ntrials <- 30
+  best_obj <- Inf
+  for (i in 1:ntrials) {
+    fit <- RcppML::nmf(dat, K, maxit = 100, seed = i)
+    obj <- sum((dat - fit$w %*% fit$h)^2)
+    if (obj < best_obj) {
+      best_obj <- obj
+      best_fit <- fit
+    }
+  }
+  t1 <- Sys.time()
+
+  saveRDS(list(t = t1 - t0, fit = best_fit), outfile)
 }
 
 fit_fasttopics <- function(datfile, K, select.genes, outfile) {
@@ -32,64 +73,29 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
   saveRDS(list(t = t1 - t0, fit = fit), outfile)
 }
 
-fit_nmf <- function(datfile, K, select.genes, outfile) {
-  pp.dat <- readRDS(datfile)
-
-  dat <- log1p(t(t(pp.dat$counts) / pp.dat$sf))
-  if (select.genes) {
-    dat <- dat[pp.dat$var.genes, ]
-  }
-
-  rm(pp.dat)
+fit_pcmf <- function(datfile, K, select.genes, outfile) {
+  dat <- get_data(datfile, select.genes, link = "identity")
 
   t0 <- Sys.time()
-  ntrials <- 30
-  best_obj <- Inf
-  for (i in 1:ntrials) {
-    fit <- RcppML::nmf(dat, K, maxit = 100, seed = i)
-    obj <- sum((dat - fit$w %*% fit$h)^2)
-    if (obj < best_obj) {
-      best_obj <- obj
-      best_fit <- fit
-    }
-  }
+  fit <- pCMF::pCMF(dat, K, zero_inflation = FALSE, iter_max = 100)
   t1 <- Sys.time()
 
-  saveRDS(list(t = t1 - t0, fit = best_fit), outfile)
+  saveRDS(list(t = t1 - t0, fit = fit), outfile)
+
 }
 
-fit_snn_ebmf <- function(datfile, K, select.genes, outfile) {
-  fit_ebmf(datfile, K, select.genes, outfile, nonnegative = FALSE)
-}
+fit_ebmf <- function(datfile, K, select.genes, outfile, link) {
+  dat <- get_data(datfile, select.genes, link)
 
-fit_nn_ebmf <- function(datfile, K, select.genes, outfile) {
-  fit_ebmf(datfile, K, select.genes, outfile, nonnegative = TRUE)
-}
-
-fit_ebmf <- function(datfile, K, select.genes, outfile, nonnegative) {
   pp.dat <- readRDS(datfile)
-
-  dat <- log1p(t(t(pp.dat$counts) / pp.dat$sf))
-
-  if (select.genes) {
-    dat <- dat[pp.dat$var.genes, ]
-  }
-
   set.seed(666)
-  n <- ncol(dat)
-  min.sd <- sd(log1p(rpois(1e7, 1 / n) / median(pp.dat$sf)))
-
+  min.sd <- sd(log1p(rpois(1e7, 1 / ncol(dat)) / median(pp.dat$sf)))
   rm(datfile)
 
-  if (nonnegative) {
-    ebnm.fn = ebnm::ebnm_point_exponential
-    init.fn = function(f) init.fn.default(f, dim.signs = c(1, 1))
-  } else {
-    ebnm.fn = c(ebnm::ebnm_point_laplace, ebnm::ebnm_point_exponential)
-    init.fn = function(f) init.fn.default(f, dim.signs = c(0, 1))
-  }
-
   t0 <- Sys.time()
+
+  ebnm.fn = ebnm::ebnm_point_exponential
+  init.fn = function(f) init.fn.default(f, dim.signs = c(1, 1))
 
   intercept <- list(
     matrix(rowMeans(dat), ncol = 1),
