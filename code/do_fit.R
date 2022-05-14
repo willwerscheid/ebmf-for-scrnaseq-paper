@@ -75,7 +75,13 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
 
 fit_pcmf <- function(datfile, K, select.genes, outfile) {
   pp.dat <- readRDS(datfile)
-  dat <- pp.dat$counts[pp.dat$var.genes, ]
+
+  if (select.genes) {
+    dat <- pp.dat$counts
+  } else {
+    dat <- pp.dat$counts[pp.dat$var.genes, ]
+  }
+
   rm(pp.dat)
   dat <- as.matrix(dat)
 
