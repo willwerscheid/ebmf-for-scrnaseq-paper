@@ -74,7 +74,7 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
 }
 
 fit_pcmf <- function(datfile, K, select.genes, outfile) {
-  dat <- get_data(datfile, select.genes, link = "identity")
+  dat <- as.matrix(get_data(datfile, select.genes, link = "identity"))
 
   t0 <- Sys.time()
   fit <- pCMF::pCMF(dat, K, zero_inflation = FALSE, iter_max = 100)
