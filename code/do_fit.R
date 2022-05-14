@@ -74,7 +74,10 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
 }
 
 fit_pcmf <- function(datfile, K, select.genes, outfile) {
-  dat <- as.matrix(get_data(datfile, select.genes, link = "identity"))
+  pp.dat <- readRDS(datfile)
+  dat <- pp.dat$counts[pp.dat$var.genes, ]
+  rm(pp.dat)
+  dat <- as.matrix(dat)
 
   t0 <- Sys.time()
   fit <- pCMF::pCMF(dat, K, zero_inflation = FALSE, iter_max = 100)
