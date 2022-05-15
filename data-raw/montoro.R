@@ -7,14 +7,15 @@ zz <- download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE103354&fo
 R.utils::gunzip("../data/pulseseq.rds.gz")
 
 dat <- readRDS("../data/pulseseq.rds")
+file.remove("../data/pulseseq.rds")
 
 source("../code/preprocess.R")
 pp.dat <- preprocess(dat)
-saveRDS(pp.dat, "../data/pulseseq.rds")
+saveRDS(pp.dat, "../data/montoro.rds")
 
 mean.expr <- rowSums(pp.dat$counts) / ncol(pp.dat$counts)
 var.gene.mean.expr <- mean.expr[pp.dat$var.genes]
 saveRDS(
   list(mean.expr = mean.expr, var.gene.mean.expr = var.gene.mean.expr),
-  "../data/pulseseq-mean-expr.rds"
+  "../data/montoro-mean-expr.rds"
 )
