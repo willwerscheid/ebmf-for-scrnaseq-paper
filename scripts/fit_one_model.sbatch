@@ -23,6 +23,7 @@ echo select.genes=${SELGENES}
 echo outfile=${OUTFILE}
 
 # For reproducibility, I add version numbers to the "module load" calls.
+module load gcc/6.1
 module load R/3.6.1
 
 # Run the R script.
