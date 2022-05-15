@@ -1,6 +1,8 @@
 # datfile must be list including counts, pc, sf, and var.genes
 # packages needed: RcppML, fastTopics, pCMF
 
+maxiter <- 500
+
 do_fit <- function(datfile, method, K, select.genes, outfile) {
   if (method == "nmf-log") {
     return(fit_nmf(datfile, K, select.genes, outfile, link = "log"))
@@ -42,7 +44,7 @@ fit_nmf <- function(datfile, K, select.genes, outfile, link) {
   ntrials <- 30
   best_obj <- Inf
   for (i in 1:ntrials) {
-    fit <- RcppML::nmf(dat, K, maxit = 100, seed = i)
+    fit <- RcppML::nmf(dat, K, maxit = maxiter, seed = i)
     obj <- sum((dat - fit$w %*% fit$h)^2)
     if (obj < best_obj) {
       best_obj <- obj
@@ -67,7 +69,7 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
   dat <- as(dat, "dgCMatrix")
 
   t0 <- Sys.time()
-  fit <- fastTopics::fit_poisson_nmf(dat, K, numiter = 100)
+  fit <- fastTopics::fit_poisson_nmf(dat, K, numiter = maxiter)
   t1 <- Sys.time()
 
   saveRDS(list(t = t1 - t0, fit = fit), outfile)
@@ -86,7 +88,7 @@ fit_pcmf <- function(datfile, K, select.genes, outfile) {
   dat <- as.matrix(dat)
 
   t0 <- Sys.time()
-  fit <- pCMF::pCMF(dat, K, zero_inflation = FALSE, iter_max = 100)
+  fit <- pCMF::pCMF(dat, K, zero_inflation = FALSE, iter_max = maxiter)
   t1 <- Sys.time()
 
   saveRDS(list(t = t1 - t0, fit = fit), outfile)
@@ -137,7 +139,7 @@ fit_ebmf <- function(datfile, K, select.genes, outfile, link) {
   }
 
   fl <- fl %>%
-    flash.backfit(maxiter = 100, verbose = 3)
+    flash.backfit(maxiter = maxiter, verbose = 3)
 
   t1 <- Sys.time()
 
