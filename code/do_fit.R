@@ -144,6 +144,8 @@ fit_ebmf <- function(datfile, K, select.genes, outfile, link) {
   t1 <- Sys.time()
 
   fl <- flash.reorder.factors(fl, c(1, order(fl$pve[-1], decreasing = TRUE) + 1))
+  fl$sampler <- NULL
+  fl$flash.fit <- NULL
 
   saveRDS(list(t = t1 - t0, fit = fl), outfile)
 }
