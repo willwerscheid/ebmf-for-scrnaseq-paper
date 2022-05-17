@@ -31,9 +31,3 @@ sbatch fit_one_model.sbatch montoro.rds     fasttopics    30 TRUE         montor
 sbatch fit_one_model.sbatch montoro.rds     pcmf          30 TRUE         montoro-sel-pcmf-k=30
 sbatch fit_one_model.sbatch montoro.rds     ebmf-log      30 TRUE         montoro-sel-ebmf-log-k=30
 sbatch fit_one_model.sbatch montoro.rds     ebmf-identity 30 TRUE         montoro-sel-ebmf-id-k=30
-sbatch fit_one_model.sbatch montoro.rds     nmf-log       40 TRUE         montoro-sel-nmf-log-k=40
-sbatch fit_one_model.sbatch montoro.rds     nmf-identity  40 TRUE         montoro-sel-nmf-id-k=40
-sbatch fit_one_model.sbatch montoro.rds     fasttopics    40 TRUE         montoro-sel-topics-k=40
-sbatch fit_one_model.sbatch montoro.rds     pcmf          40 TRUE         montoro-sel-pcmf-k=40
-sbatch fit_one_model.sbatch montoro.rds     ebmf-log      40 TRUE         montoro-sel-ebmf-log-k=40
-sbatch fit_one_model.sbatch montoro.rds     ebmf-identity 40 TRUE         montoro-sel-ebmf-id-k=40
