@@ -1,0 +1,133 @@
+---
+title: "Visualizations (Test: Deng et al.)"
+author: "Jason Willwerscheid"
+date: "5/15/2022"
+output:
+  workflowr::wflow_html:
+    code_folding: hide
+    toc: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(Polychrome)
+library(fastTopics)
+library(cowplot)
+library(ggrepel)
+```
+
+```{r deng, fig.height=32, fig.width=10, warning=FALSE, message=FALSE}
+ebmf_id <- readRDS("./output/deng-sel-ebmf-id-k=10.rds")
+ebmf_log <- readRDS("./output/deng-sel-ebmf-log-k=10.rds")
+nmf_id <- readRDS("./output/deng-sel-nmf-id-k=10.rds")
+nmf_log <- readRDS("./output/deng-sel-nmf-log-k=10.rds")
+tm <- readRDS("./output/deng-sel-topics-k=10.rds")
+pcmf <- readRDS("./output/deng-sel-pcmf-k=10.rds")
+
+fl <- ebmf_log$fit
+FF <- fl$F.pm
+FF <- scale(FF, center = FALSE)
+cell.cluster <- apply(FF, 1, which.max)
+
+cell.type <- sapply(strsplit(rownames(FF), "_"), `[[`, 2)
+cell.type <- factor(cell.type, levels = sort(unique(cell.type))[c(
+  10, 4, 6, 8, 2, 3, 1, 5, 9, 7
+)])
+
+# Sort cells using t-SNE.
+set.seed(666)
+cell.idx <- numeric(0)
+for (k in sort(unique(cell.cluster))) {
+  which.idx <- which(cell.cluster == k)
+  if (length(which.idx) > 4) {
+    tsne.res <- Rtsne::Rtsne(
+      FF[which.idx, ],
+      dims = 1,
+      pca = FALSE,
+      normalize = FALSE,
+      perplexity = min(100, floor((length(which.idx) - 1) / 3) - 1),
+      theta = 0.1,
+      max_iter = 1000,
+      eta = 200,
+      check_duplicates = FALSE
+    )$Y[, 1]
+  } else {
+    tsne.res <- 1:length(which.idx)
+  }
+  cell.idx <- c(cell.idx, which.idx[order(tsne.res)])
+}
+
+cell.cluster <- cell.cluster[cell.idx]
+cell.type <- cell.type[cell.idx]
+cell.type <- droplevels(cell.type)
+
+ebmf.log.FF <- fl$F.pm[cell.idx, ]
+ebmf.id.FF <- ebmf_id$fit$F.pm[cell.idx, ]
+nmf.log.FF <- (t(nmf_log$fit$h))[cell.idx, ]
+nmf.id.FF <- (t(nmf_id$fit$h))[cell.idx, ]
+tm.FF <- tm$fit$F[cell.idx, order(colSums(tm$fit$F^2) * colSums(tm$fit$L^2), decreasing = TRUE)]
+pcmf.FF <- pcmf$fit$factor$V[
+  cell.idx, order(colSums(pcmf$fit$factor$U^2) * colSums(pcmf$fit$factor$V^2), decreasing = TRUE)
+]
+
+make.heatmap.tib <- function(FF) {
+  colnames(FF) <- 1:ncol(FF)
+  tib <- as_tibble(scale(FF, center = FALSE, scale = apply(FF, 2, max))) %>%
+    mutate(
+      Cell.idx = row_number(),
+      Cell.cluster = cell.cluster,
+      Cell.type = cell.type
+    )
+  
+  tib <- tib %>%
+    pivot_longer(
+      -c(Cell.idx, Cell.cluster, Cell.type),
+      names_to = "Factor",
+      values_to = "Loading",
+      values_drop_na = TRUE
+    ) %>%
+    mutate(Factor = factor(Factor, levels = colnames(FF)))
+  
+  return(tib)
+}
+
+ebmf.log.tib <- make.heatmap.tib(ebmf.log.FF)
+ebmf.id.tib <- make.heatmap.tib(ebmf.id.FF)
+nmf.log.tib <- make.heatmap.tib(nmf.log.FF)
+nmf.id.tib <- make.heatmap.tib(nmf.id.FF)
+tm.tib <- make.heatmap.tib(tm.FF)
+pcmf.tib <- make.heatmap.tib(pcmf.FF)
+
+heatmap.tib <- ebmf.log.tib %>% mutate(Method = "EBMF-log") %>%
+  bind_rows(ebmf.id.tib %>% mutate(Method = "EBMF-identity")) %>%
+  bind_rows(nmf.log.tib %>% mutate(Method = "NMF-log")) %>%
+  bind_rows(nmf.id.tib %>% mutate(Method = "NMF-identity")) %>%
+  bind_rows(tm.tib %>% mutate(Method = "Topics")) %>%
+  bind_rows(pcmf.tib %>% mutate(Method = "PCMF")) %>%
+  mutate(Method = factor(Method, levels = c(
+    "EBMF-log", "EBMF-identity", "NMF-log", "NMF-identity", "Topics", "PCMF"
+  )))
+
+tib <- heatmap.tib %>%
+  group_by(Cell.type, Cell.idx) %>%
+  summarize()
+cell_type_breaks <- c(1, which(tib$Cell.type[-1] != tib$Cell.type[-nrow(tib)]))
+label_pos <- cell_type_breaks / 2 + c(cell_type_breaks[-1], nrow(tib)) / 2
+
+plt <- ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "firebrick") +
+  labs(y = "") +
+  scale_y_continuous(breaks = -label_pos,
+                     minor_breaks = NULL,
+                     labels = levels(cell.type)) +
+  theme_minimal() +
+  geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
+  facet_wrap(~Method, ncol = 1) +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 16))
+
+plt
+```
