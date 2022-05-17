@@ -3,7 +3,7 @@
 #SBATCH --partition=broadwl
 #SBATCH --account=pi-mstephens
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=24G
+#SBATCH --mem=32G
 #SBATCH --exclusive
 #SBATCH --time=36:00:00
 
