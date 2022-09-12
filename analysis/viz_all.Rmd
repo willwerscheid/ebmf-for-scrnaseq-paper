@@ -1,5 +1,5 @@
 ---
-title: "Visualizations (All heatmaps)"
+title: "Visualizations (Test: Deng et al.)"
 author: "Jason Willwerscheid"
 date: "5/10/2022"
 output:
@@ -18,38 +18,30 @@ library(cowplot)
 library(ggrepel)
 ```
 
-## Montoro
+```{r deng, fig.height=32, fig.width=10, warning=FALSE, message=FALSE}
+ebmf_id <- readRDS("./output/deng-sel-ebmf-id-k=10.rds")
+ebmf_log <- readRDS("./output/deng-sel-ebmf-log-k=10.rds")
+nmf_id <- readRDS("./output/deng-sel-nmf-id-k=10.rds")
+nmf_log <- readRDS("./output/deng-sel-nmf-log-k=10.rds")
+tm <- readRDS("./output/deng-sel-topics-k=10.rds")
+pcmf <- readRDS("./output/deng-sel-pcmf-k=10.rds")
 
-```{r montoro, fig.height=24, fig.width=10, warning=FALSE, message=FALSE}
-nnebmf <- readRDS("./output/pulseseq-sel-nnebmf-k=30.rds")
-snnebmf <- readRDS("./output/pulseseq-sel-snnebmf-k=30.rds")
-nmf <- readRDS("./output/pulseseq-sel-nmf-k=30.rds")
-tm <- readRDS("./output/pulseseq-sel-topics-k=30.rds")
-
-fl <- nnebmf$fit
+fl <- ebmf_log$fit
 FF <- fl$F.pm
-FF <- scale(FF, center = FALSE, scale = apply(FF, 2, max))
-FF <- FF[, -1]
-colnames(FF) <- paste0("k", 1:ncol(FF))
+FF <- scale(FF, center = FALSE)
+cell.cluster <- apply(FF, 1, which.max)
 
-cell.type <- sapply(strsplit(rownames(FF), "_"), `[[`, 5)
+cell.type <- sapply(strsplit(rownames(FF), "_"), `[[`, 2)
 cell.type <- factor(cell.type, levels = sort(unique(cell.type))[c(
-  1, 4, 3, 2, 7, 5, 6, 13, 11, 12, 9, 8, 10
+  10, 4, 6, 8, 2, 3, 1, 5, 9, 7
 )])
 
-# Downsample the number of cells and sort them using tSNE.
+# Sort cells using t-SNE.
 set.seed(666)
 cell.idx <- numeric(0)
-cell.types <- levels(cell.type)
-for (i in 1:length(cell.types)) {
-  which.idx <- which(cell.type == cell.types[i])
-  # Downsample common cell types.
-  if (length(which.idx) > 100) {
-    which.idx <- sample(which.idx, 100)
-  }
-  # Don't include rare cell types.
-  if (length(which.idx) > 20) {
-    # Sort using tsne.
+for (k in sort(unique(cell.cluster))) {
+  which.idx <- which(cell.cluster == k)
+  if (length(which.idx) > 4) {
     tsne.res <- Rtsne::Rtsne(
       FF[which.idx, ],
       dims = 1,
@@ -61,52 +53,66 @@ for (i in 1:length(cell.types)) {
       eta = 200,
       check_duplicates = FALSE
     )$Y[, 1]
-    which.idx <- which.idx[order(tsne.res)]
-    cell.idx <- c(cell.idx, which.idx)
+  } else {
+    tsne.res <- 1:length(which.idx)
   }
+  cell.idx <- c(cell.idx, which.idx[order(tsne.res)])
 }
 
+cell.cluster <- cell.cluster[cell.idx]
 cell.type <- cell.type[cell.idx]
 cell.type <- droplevels(cell.type)
 
-ebmf.FF <- fl$F.pm[cell.idx, ]
-snn.FF <- snnebmf$fit$F.pm[cell.idx, ]
-nmf.FF <- (t(nmf$fit$h))[cell.idx, ]
-tm.FF <- tm$fit$F[cell.idx, ]
+ebmf.log.FF <- fl$F.pm[cell.idx, ]
+ebmf.id.FF <- ebmf_id$fit$F.pm[cell.idx, ]
+nmf.log.FF <- (t(nmf_log$fit$h))[cell.idx, ]
+nmf.id.FF <- (t(nmf_id$fit$h))[cell.idx, ]
+tm.FF <- tm$fit$F[cell.idx, order(colSums(tm$fit$F^2) * colSums(tm$fit$L^2), decreasing = TRUE)]
+pcmf.FF <- pcmf$fit$factor$V[
+  cell.idx, order(colSums(pcmf$fit$factor$U^2) * colSums(pcmf$fit$factor$V^2), decreasing = TRUE)
+]
 
 make.heatmap.tib <- function(FF) {
+  colnames(FF) <- 1:ncol(FF)
   tib <- as_tibble(scale(FF, center = FALSE, scale = apply(FF, 2, max))) %>%
-    mutate(Cell.type = cell.type) %>%
-    arrange(Cell.type) %>%
-    mutate(Cell.idx = row_number())
+    mutate(
+      Cell.idx = row_number(),
+      Cell.cluster = cell.cluster,
+      Cell.type = cell.type
+    )
   
   tib <- tib %>%
     pivot_longer(
-      -c(Cell.idx, Cell.type),
+      -c(Cell.idx, Cell.cluster, Cell.type),
       names_to = "Factor",
       values_to = "Loading",
       values_drop_na = TRUE
     ) %>%
-    mutate(Factor = as.numeric(str_extract(Factor, "[0-9]+")))
+    mutate(Factor = factor(Factor, levels = colnames(FF)))
   
   return(tib)
 }
 
-ebmf.tib <- make.heatmap.tib(ebmf.FF)
-nmf.tib <- make.heatmap.tib(nmf.FF)
-snn.tib <- make.heatmap.tib(snn.FF)
+ebmf.log.tib <- make.heatmap.tib(ebmf.log.FF)
+ebmf.id.tib <- make.heatmap.tib(ebmf.id.FF)
+nmf.log.tib <- make.heatmap.tib(nmf.log.FF)
+nmf.id.tib <- make.heatmap.tib(nmf.id.FF)
 tm.tib <- make.heatmap.tib(tm.FF)
+pcmf.tib <- make.heatmap.tib(pcmf.FF)
 
-heatmap.tib <- ebmf.tib %>% mutate(Method = "NN-EBMF") %>%
-  bind_rows(nmf.tib %>% mutate(Method = "NMF")) %>%
-  bind_rows(snn.tib %>% mutate(Method = "SNN-EBMF")) %>%
+heatmap.tib <- ebmf.log.tib %>% mutate(Method = "EBMF-log") %>%
+  bind_rows(ebmf.id.tib %>% mutate(Method = "EBMF-identity")) %>%
+  bind_rows(nmf.log.tib %>% mutate(Method = "NMF-log")) %>%
+  bind_rows(nmf.id.tib %>% mutate(Method = "NMF-identity")) %>%
   bind_rows(tm.tib %>% mutate(Method = "Topics")) %>%
-  mutate(Method = factor(Method, levels = c("NMF", "NN-EBMF", "SNN-EBMF", "Topics")))
+  bind_rows(pcmf.tib %>% mutate(Method = "PCMF")) %>%
+  mutate(Method = factor(Method, levels = c(
+    "EBMF-log", "EBMF-identity", "NMF-log", "NMF-identity", "Topics", "PCMF"
+  )))
 
 tib <- heatmap.tib %>%
   group_by(Cell.type, Cell.idx) %>%
   summarize()
-
 cell_type_breaks <- c(1, which(tib$Cell.type[-1] != tib$Cell.type[-nrow(tib)]))
 label_pos <- cell_type_breaks / 2 + c(cell_type_breaks[-1], nrow(tib)) / 2
 
@@ -120,126 +126,255 @@ plt <- ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
   theme_minimal() +
   geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
   facet_wrap(~Method, ncol = 1) +
-  theme(legend.position = "none", 
+  theme(legend.position = "none",
         strip.text = element_text(size = 16))
 
 plt
 ```
 
+## Montoro
+
+```{r montoro, fig.height=12, fig.width=10, warning=FALSE, message=FALSE}
+# nnebmf <- readRDS("./output/pulseseq-sel-nnebmf-k=30.rds")
+# snnebmf <- readRDS("./output/pulseseq-sel-snnebmf-k=30.rds")
+# nmf <- readRDS("./output/pulseseq-sel-nmf-k=30.rds")
+# tm <- readRDS("./output/pulseseq-sel-topics-k=30.rds")
+# 
+# fl <- nnebmf$fit
+# FF <- fl$F.pm
+# FF <- scale(FF, center = FALSE)
+# cell.cluster <- apply(FF, 1, which.max)
+# 
+# cell.type <- sapply(strsplit(rownames(FF), "_"), `[[`, 5)
+# cell.type <- factor(cell.type, levels = sort(unique(cell.type))[c(
+#   1, 4, 3, 2, 7, 5, 6, 13, 11, 12, 9, 8, 10
+# )])
+# 
+# # Downsample the number of cells. Sort them using t-SNE.
+# set.seed(666)
+# cell.idx <- numeric(0)
+# for (k in sort(unique(cell.cluster))) {
+#   which.idx <- which(cell.cluster == k)
+#   # Downsample common cell types.
+#   if (length(which.idx) > 200) {
+#     which.idx <- sample(which.idx, 200)
+#   }
+#   tsne.res <- Rtsne::Rtsne(
+#     FF[which.idx, ],
+#     dims = 1,
+#     pca = FALSE,
+#     normalize = FALSE,
+#     perplexity = min(100, floor((length(which.idx) - 1) / 3) - 1),
+#     theta = 0.1,
+#     max_iter = 1000,
+#     eta = 200,
+#     check_duplicates = FALSE
+#   )$Y[, 1]
+#   cell.idx <- c(cell.idx, which.idx[order(tsne.res)])
+# }
+# 
+# cell.cluster <- cell.cluster[cell.idx]
+# cell.type <- cell.type[cell.idx]
+# cell.type <- droplevels(cell.type)
+# 
+# # cluster.FF <- model.matrix(~ -1 + cell.type)
+# # colnames(cluster.FF) <- str_remove(colnames(cluster.FF), "cell.type")
+# # 
+# # cluster.tib <- as_tibble(cluster.FF) %>%
+# #   mutate(Cell.idx = row_number()) %>%
+# #   pivot_longer(
+# #     -Cell.idx,
+# #     names_to = "Cell.type",
+# #     values_to = "Indicator",
+# #   ) %>%
+# #   mutate(Cell.type = factor(str_remove(Cell.type, "cell.type"), levels = levels(cell.type)))
+# 
+# ebmf.FF <- fl$F.pm[cell.idx, ]
+# snn.FF <- snnebmf$fit$F.pm[cell.idx, ]
+# nmf.FF <- (t(nmf$fit$h))[cell.idx, ]
+# tm.FF <- tm$fit$F[cell.idx, ]
+# 
+# make.heatmap.tib <- function(FF) {
+#   colnames(FF) <- 1:ncol(FF)
+#   tib <- as_tibble(scale(FF, center = FALSE)) %>%
+#     mutate(
+#       Cell.idx = row_number(),
+#       Cell.cluster = cell.cluster,
+#       Cell.type = cell.type
+#     )
+#   
+#   tib <- tib %>%
+#     pivot_longer(
+#       -c(Cell.idx, Cell.cluster, Cell.type),
+#       names_to = "Factor",
+#       values_to = "Loading",
+#       values_drop_na = TRUE
+#     ) %>%
+#     mutate(Factor = factor(Factor, levels = colnames(FF)))
+#   
+#   return(tib)
+# }
+# 
+# ebmf.tib <- make.heatmap.tib(ebmf.FF)
+# nmf.tib <- make.heatmap.tib(nmf.FF)
+# snn.tib <- make.heatmap.tib(snn.FF)
+# tm.tib <- make.heatmap.tib(tm.FF)
+# 
+# heatmap.tib <- ebmf.tib %>% mutate(Method = "NN-EBMF") %>%
+#   # bind_rows(nmf.tib %>% mutate(Method = "NMF")) %>%
+#   bind_rows(snn.tib %>% mutate(Method = "SNN-EBMF")) %>%
+#   # bind_rows(tm.tib %>% mutate(Method = "Topics")) %>%
+#   # mutate(Method = factor(Method, levels = c("NN-EBMF", "SNN-EBMF", "NMF", "Topics")))
+#   mutate(Method = factor(Method, levels = c("NN-EBMF", "SNN-EBMF")))
+# 
+# plt <- ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
+#   geom_tile() +
+#   scale_fill_gradient(low = "white", high = "firebrick") +
+#   labs(y = "") +
+#   theme_minimal() +
+#   facet_wrap(~Method, ncol = 1) +
+#   guides(fill = "none") +
+#   scale_y_continuous(breaks = NULL,
+#                      minor_breaks = NULL) +
+#   theme(strip.text = element_text(size = 16),
+#         axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+# 
+# # tib <- heatmap.tib %>%
+# #   group_by(Cell.type, Cell.idx) %>%
+# #   summarize()
+# # cell_type_breaks <- c(1, which(tib$Cell.type[-1] != tib$Cell.type[-nrow(tib)]))
+# # label_pos <- cell_type_breaks / 2 + c(cell_type_breaks[-1], nrow(tib)) / 2
+# # 
+# # plt <- ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
+# #   geom_tile() +
+# #   scale_fill_gradient(low = "white", high = "firebrick") +
+# #   labs(y = "") +
+# #   scale_y_continuous(breaks = -label_pos,
+# #                      minor_breaks = NULL,
+# #                      labels = levels(cell.type)) +
+# #   theme_minimal() +
+# #   geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
+# #   facet_wrap(~Method, ncol = 1) +
+# #   theme(legend.position = "none", 
+# #         strip.text = element_text(size = 16))
+# 
+# plt
+```
+
 ## Pijuan-Sala
 
 ```{r pijuan, fig.height=32, fig.width=10, warning=FALSE, message=FALSE}
-nnebmf <- readRDS("./output/pijuan-sel-nnebmf-k=40.rds")
-snnebmf <- readRDS("./output/pijuan-sel-snnebmf-k=40.rds")
-nmf <- readRDS("./output/pijuan-sel-nmf-k=40.rds")
-tm <- readRDS("./output/pijuan-sel-topics-k=40.rds")
-
-fl <- nnebmf$fit
-FF <- fl$F.pm
-FF <- scale(FF, center = FALSE, scale = apply(FF, 2, max))
-FF <- FF[, -1]
-colnames(FF) <- paste0("k", 1:ncol(FF))
-
-# Use same cell type order as paper.
-cell.type <- sapply(strsplit(rownames(FF), "_"), `[[`, 6)
-cell.type <- str_replace(cell.type, "Haematoendothelial", "Haematoendo.")
-cell.type <- factor(cell.type, levels = sort(unique(cell.type))[c(
-  5, 11, 30, 27, 8, 19, 21, 6, 28, 33, 31, 24, 23, 4, 1, 17, 22, 20, 2, 3, 12:14,
-  10, 26, 32, 7, 25, 18, 34, 36, 16, 15, 29, 37,
-  9, 35
-)])
-tomato <- factor(sapply(strsplit(rownames(FF), "_"), `[[`, 4))
-
-# Downsample the number of cells and sort them using tSNE.
-set.seed(666)
-cell.idx <- numeric(0)
-cell.types <- levels(cell.type)
-cell.types <- setdiff(cell.types, c("Doublet", "Stripped"))
-for (i in 1:length(cell.types)) {
-  which.idx <- which(cell.type == cell.types[i])
-  # Downsample common cell types.
-  if (length(which.idx) > 100) {
-    which.idx <- sample(which.idx, 100)
-  }
-  # Don't include rare cell types.
-  if (length(which.idx) > 20) {
-    # Sort using tsne.
-    tsne.res <- Rtsne::Rtsne(
-      FF[which.idx, ],
-      dims = 1,
-      pca = FALSE,
-      normalize = FALSE,
-      perplexity = min(100, floor((length(which.idx) - 1) / 3) - 1),
-      theta = 0.1,
-      max_iter = 1000,
-      eta = 200,
-      check_duplicates = FALSE
-    )$Y[, 1]
-    which.idx <- which.idx[order(tsne.res)]
-    cell.idx <- c(cell.idx, which.idx)
-  }
-}
-
-cell.type <- cell.type[cell.idx]
-tomato <- tomato[cell.idx]
-cell.type <- droplevels(cell.type)
-
-ebmf.FF <- fl$F.pm[cell.idx, ]
-snn.FF <- snnebmf$fit$F.pm[cell.idx, ]
-nmf.FF <- (t(nmf$fit$h))[cell.idx, ]
-tm.FF <- tm$fit$F[cell.idx, ]
-
-make.heatmap.tib <- function(FF) {
-  tib <- as_tibble(scale(FF, center = FALSE, scale = apply(FF, 2, max))) %>%
-    mutate(Cell.type = cell.type, Tomato = tomato) %>%
-    arrange(Cell.type, Tomato) %>%
-    mutate(Cell.idx = row_number())
-  
-  tib <- tib %>%
-    pivot_longer(
-      -c(Cell.idx, Cell.type, Tomato),
-      names_to = "Factor",
-      values_to = "Loading",
-      values_drop_na = TRUE
-    ) %>%
-    mutate(Factor = as.numeric(str_extract(Factor, "[0-9]+")))
-  
-  return(tib)
-}
-
-ebmf.tib <- make.heatmap.tib(ebmf.FF)
-nmf.tib <- make.heatmap.tib(nmf.FF)
-snn.tib <- make.heatmap.tib(snn.FF)
-tm.tib <- make.heatmap.tib(tm.FF)
-
-heatmap.tib <- ebmf.tib %>% mutate(Method = "NN-EBMF") %>%
-  bind_rows(nmf.tib %>% mutate(Method = "NMF")) %>%
-  bind_rows(snn.tib %>% mutate(Method = "SNN-EBMF")) %>%
-  bind_rows(tm.tib %>% mutate(Method = "Topics")) %>%
-  mutate(Method = factor(Method, levels = c("NMF", "NN-EBMF", "SNN-EBMF", "Topics")))
-
-tib <- heatmap.tib %>%
-  group_by(Cell.type, Tomato, Cell.idx) %>%
-  summarize()
-
-cell_type_breaks <- c(1, which(tib$Cell.type[-1] != tib$Cell.type[-nrow(tib)]))
-label_pos <- cell_type_breaks / 2 + c(cell_type_breaks[-1], nrow(tib)) / 2
-tomato_breaks <- which(tib$Tomato[-1] != tib$Tomato[-nrow(tib)])
-tomato_breaks <- setdiff(tomato_breaks, cell_type_breaks)
-
-plt <- ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
-  geom_tile() +
-  scale_fill_gradient(low = "white", high = "firebrick") +
-  labs(y = "") +
-  scale_y_continuous(breaks = -label_pos,
-                     minor_breaks = NULL,
-                     labels = levels(cell.type)) +
-  theme_minimal() +
-  geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
-  geom_hline(yintercept = -tomato_breaks, size = 0.1, linetype = "dashed") +
-  facet_wrap(~Method, ncol = 1) +
-  theme(legend.position = "none", 
-        strip.text = element_text(size = 16))
-
-plt
+# nnebmf <- readRDS("./output/pijuan-sel-nnebmf-k=40.rds")
+# snnebmf <- readRDS("./output/pijuan-sel-snnebmf-k=40.rds")
+# nmf <- readRDS("./output/pijuan-sel-nmf-k=40.rds")
+# tm <- readRDS("./output/pijuan-sel-topics-k=40.rds")
+# 
+# fl <- nnebmf$fit
+# FF <- fl$F.pm
+# FF <- scale(FF, center = FALSE, scale = apply(FF, 2, max))
+# FF <- FF[, -1]
+# colnames(FF) <- paste0("k", 1:ncol(FF))
+# 
+# # Use same cell type order as paper.
+# cell.type <- sapply(strsplit(rownames(FF), "_"), `[[`, 6)
+# cell.type <- str_replace(cell.type, "Haematoendothelial", "Haematoendo.")
+# cell.type <- factor(cell.type, levels = sort(unique(cell.type))[c(
+#   5, 11, 30, 27, 8, 19, 21, 6, 28, 33, 31, 24, 23, 4, 1, 17, 22, 20, 2, 3, 12:14,
+#   10, 26, 32, 7, 25, 18, 34, 36, 16, 15, 29, 37,
+#   9, 35
+# )])
+# tomato <- factor(sapply(strsplit(rownames(FF), "_"), `[[`, 4))
+# 
+# # Downsample the number of cells and sort them using tSNE.
+# set.seed(666)
+# cell.idx <- numeric(0)
+# cell.types <- levels(cell.type)
+# cell.types <- setdiff(cell.types, c("Doublet", "Stripped"))
+# for (i in 1:length(cell.types)) {
+#   which.idx <- which(cell.type == cell.types[i])
+#   # Downsample common cell types.
+#   if (length(which.idx) > 100) {
+#     which.idx <- sample(which.idx, 100)
+#   }
+#   # Don't include rare cell types.
+#   if (length(which.idx) > 20) {
+#     # Sort using tsne.
+#     tsne.res <- Rtsne::Rtsne(
+#       FF[which.idx, ],
+#       dims = 1,
+#       pca = FALSE,
+#       normalize = FALSE,
+#       perplexity = min(100, floor((length(which.idx) - 1) / 3) - 1),
+#       theta = 0.1,
+#       max_iter = 1000,
+#       eta = 200,
+#       check_duplicates = FALSE
+#     )$Y[, 1]
+#     which.idx <- which.idx[order(tsne.res)]
+#     cell.idx <- c(cell.idx, which.idx)
+#   }
+# }
+# 
+# cell.type <- cell.type[cell.idx]
+# tomato <- tomato[cell.idx]
+# cell.type <- droplevels(cell.type)
+# 
+# ebmf.FF <- fl$F.pm[cell.idx, ]
+# snn.FF <- snnebmf$fit$F.pm[cell.idx, ]
+# nmf.FF <- (t(nmf$fit$h))[cell.idx, ]
+# tm.FF <- tm$fit$F[cell.idx, ]
+# 
+# make.heatmap.tib <- function(FF) {
+#   tib <- as_tibble(scale(FF, center = FALSE, scale = apply(FF, 2, max))) %>%
+#     mutate(Cell.type = cell.type, Tomato = tomato) %>%
+#     arrange(Cell.type, Tomato) %>%
+#     mutate(Cell.idx = row_number())
+#   
+#   tib <- tib %>%
+#     pivot_longer(
+#       -c(Cell.idx, Cell.type, Tomato),
+#       names_to = "Factor",
+#       values_to = "Loading",
+#       values_drop_na = TRUE
+#     ) %>%
+#     mutate(Factor = as.numeric(str_extract(Factor, "[0-9]+")))
+#   
+#   return(tib)
+# }
+# 
+# ebmf.tib <- make.heatmap.tib(ebmf.FF)
+# nmf.tib <- make.heatmap.tib(nmf.FF)
+# snn.tib <- make.heatmap.tib(snn.FF)
+# tm.tib <- make.heatmap.tib(tm.FF)
+# 
+# heatmap.tib <- ebmf.tib %>% mutate(Method = "NN-EBMF") %>%
+#   bind_rows(nmf.tib %>% mutate(Method = "NMF")) %>%
+#   bind_rows(snn.tib %>% mutate(Method = "SNN-EBMF")) %>%
+#   bind_rows(tm.tib %>% mutate(Method = "Topics")) %>%
+#   mutate(Method = factor(Method, levels = c("NMF", "NN-EBMF", "SNN-EBMF", "Topics")))
+# 
+# tib <- heatmap.tib %>%
+#   group_by(Cell.type, Tomato, Cell.idx) %>%
+#   summarize()
+# 
+# cell_type_breaks <- c(1, which(tib$Cell.type[-1] != tib$Cell.type[-nrow(tib)]))
+# label_pos <- cell_type_breaks / 2 + c(cell_type_breaks[-1], nrow(tib)) / 2
+# tomato_breaks <- which(tib$Tomato[-1] != tib$Tomato[-nrow(tib)])
+# tomato_breaks <- setdiff(tomato_breaks, cell_type_breaks)
+# 
+# plt <- ggplot(heatmap.tib, aes(x = Factor, y = -Cell.idx, fill = Loading)) +
+#   geom_tile() +
+#   scale_fill_gradient(low = "white", high = "firebrick") +
+#   labs(y = "") +
+#   scale_y_continuous(breaks = -label_pos,
+#                      minor_breaks = NULL,
+#                      labels = levels(cell.type)) +
+#   theme_minimal() +
+#   geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
+#   geom_hline(yintercept = -tomato_breaks, size = 0.1, linetype = "dashed") +
+#   facet_wrap(~Method, ncol = 1) +
+#   theme(legend.position = "none", 
+#         strip.text = element_text(size = 16))
+# 
+# plt
 ```
