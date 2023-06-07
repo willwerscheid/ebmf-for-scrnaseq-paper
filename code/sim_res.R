@@ -118,21 +118,21 @@ ggplot(tib, aes(x = k, y = row, fill = value)) +
 
 ggsave("../figs/sim_res.png", width = 100, height = 60, units = "mm")
 
-tib_poster <- tib %>%
-  filter(type != "NMF, one run") %>%
-  mutate(type = fct_drop(fct_recode(type, `Vanilla NMF` = "NMF, best run")))
-ggplot(tib_poster, aes(x = k, y = row, fill = value)) +
-  geom_tile() +
-  scale_fill_gradient2(high = "black") +
-  facet_grid(rows = vars(dim), cols = vars(type), scales = "free", switch = "y") +
-  theme_void() +
-  theme(
-    strip.text.x = element_text(size = 14, margin = margin(2, 2, 2), family = "serif"),
-    strip.text.y.left = element_text(size = 14, margin = margin(4, 4, 4), family = "serif", angle = 0),
-    legend.position = "none"
-  )
-
-ggsave("./figs/sim_res_poster.png", width = 100, height = 60, units = "mm")
+# tib_poster <- tib %>%
+#   filter(type != "NMF, one run") %>%
+#   mutate(type = fct_drop(fct_recode(type, `Vanilla NMF` = "NMF, best run")))
+# ggplot(tib_poster, aes(x = k, y = row, fill = value)) +
+#   geom_tile() +
+#   scale_fill_gradient2(high = "black") +
+#   facet_grid(rows = vars(dim), cols = vars(type), scales = "free", switch = "y") +
+#   theme_void() +
+#   theme(
+#     strip.text.x = element_text(size = 14, margin = margin(2, 2, 2), family = "serif"),
+#     strip.text.y.left = element_text(size = 14, margin = margin(4, 4, 4), family = "serif", angle = 0),
+#     legend.position = "none"
+#   )
+#
+# ggsave("./figs/sim_res_poster.png", width = 100, height = 60, units = "mm")
 
 cat("Time to run EBNMF:", format(ebnmf_t, units= "auto"), "\n")
 cat("Time to do", niter, "NMF runs:", format(nnlm_t2, units= "auto"), "\n")

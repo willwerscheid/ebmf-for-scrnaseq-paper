@@ -120,49 +120,49 @@ plt <- ggplot(heatmap.tib, aes(x = Component, y = -Cell.idx, fill = Loading)) +
 
 ggsave("figs/montoro_heatmap.png", width = 163, height = 190, units = "mm")
 
-poster.tib.ebnmf <- heatmap.tib %>%
-  filter(Method == "EBNMF") %>%
-  mutate(Loading = ifelse(Component == "20", -Loading, Loading)) %>%
-  mutate(Cell.type = fct_recode(Cell.type, `Club (hillock)` = "Club (hillock-associated)"))
-plt <- ggplot(poster.tib.ebnmf, aes(x = Component, y = -Cell.idx, fill = Loading)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "red", mid = "white", high = "black") +
-  labs(y = "", title = "EBNMF") +
-  scale_y_continuous(breaks = -label_pos,
-                     minor_breaks = NULL,
-                     labels = levels(poster.tib.ebnmf$Cell.type)) +
-  theme_minimal() +
-  geom_hline(yintercept = -cell_type_breaks, linewidth = 0.1) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(size = 16, family = "serif", hjust = 0.5),
-    axis.text.y = element_text(size = 13, family = "serif"),
-    axis.text.x = element_text(size = 9, family = "serif"),
-    axis.title = element_text(size = 14, margin = margin(2, 2, 2, 2), family = "serif")
-  )
-
-ggsave("figs/montoro_ebnmf_heatmap_poster.png", width = 163, height = 95, units = "mm")
-
-poster.tib.nmf <- heatmap.tib %>%
-  filter(Method == "NMF") %>%
-  mutate(Loading = ifelse(Component == "30", -Loading, Loading)) %>%
-  mutate(Cell.type = fct_recode(Cell.type, `Club (hillock)` = "Club (hillock-associated)"))
-plt <- ggplot(poster.tib.nmf, aes(x = Component, y = -Cell.idx, fill = Loading)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "red", mid = "white", high = "black") +
-  labs(x = "", y = "", title = "NMF") +
-  scale_y_continuous(breaks = -label_pos,
-                     minor_breaks = NULL,
-                     labels = NULL) +
-  theme_minimal() +
-  geom_hline(yintercept = -cell_type_breaks, linewidth = 0.1) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(size = 16, family = "serif", hjust = 0.5),
-    axis.text.x = element_blank()
-  )
-
-ggsave("figs/montoro_nmf_heatmap_poster.png", width = 163 / 2, height = 95 / 2, units = "mm")
+# poster.tib.ebnmf <- heatmap.tib %>%
+#   filter(Method == "EBNMF") %>%
+#   mutate(Loading = ifelse(Component == "20", -Loading, Loading)) %>%
+#   mutate(Cell.type = fct_recode(Cell.type, `Club (hillock)` = "Club (hillock-associated)"))
+# plt <- ggplot(poster.tib.ebnmf, aes(x = Component, y = -Cell.idx, fill = Loading)) +
+#   geom_tile() +
+#   scale_fill_gradient2(low = "red", mid = "white", high = "black") +
+#   labs(y = "", title = "EBNMF") +
+#   scale_y_continuous(breaks = -label_pos,
+#                      minor_breaks = NULL,
+#                      labels = levels(poster.tib.ebnmf$Cell.type)) +
+#   theme_minimal() +
+#   geom_hline(yintercept = -cell_type_breaks, linewidth = 0.1) +
+#   theme(
+#     legend.position = "none",
+#     plot.title = element_text(size = 16, family = "serif", hjust = 0.5),
+#     axis.text.y = element_text(size = 13, family = "serif"),
+#     axis.text.x = element_text(size = 9, family = "serif"),
+#     axis.title = element_text(size = 14, margin = margin(2, 2, 2, 2), family = "serif")
+#   )
+#
+# ggsave("figs/montoro_ebnmf_heatmap_poster.png", width = 163, height = 95, units = "mm")
+#
+# poster.tib.nmf <- heatmap.tib %>%
+#   filter(Method == "NMF") %>%
+#   mutate(Loading = ifelse(Component == "30", -Loading, Loading)) %>%
+#   mutate(Cell.type = fct_recode(Cell.type, `Club (hillock)` = "Club (hillock-associated)"))
+# plt <- ggplot(poster.tib.nmf, aes(x = Component, y = -Cell.idx, fill = Loading)) +
+#   geom_tile() +
+#   scale_fill_gradient2(low = "red", mid = "white", high = "black") +
+#   labs(x = "", y = "", title = "NMF") +
+#   scale_y_continuous(breaks = -label_pos,
+#                      minor_breaks = NULL,
+#                      labels = NULL) +
+#   theme_minimal() +
+#   geom_hline(yintercept = -cell_type_breaks, linewidth = 0.1) +
+#   theme(
+#     legend.position = "none",
+#     plot.title = element_text(size = 16, family = "serif", hjust = 0.5),
+#     axis.text.x = element_blank()
+#   )
+#
+# ggsave("figs/montoro_nmf_heatmap_poster.png", width = 163 / 2, height = 95 / 2, units = "mm")
 
 top.genes <- apply(ebnmf$fit$L.pm, 2, function(k) {
   rownames(ebnmf$fit$L.pm)[order(k, decreasing = TRUE)[1:12]]
@@ -246,26 +246,26 @@ plt <- ggplot(tib, aes(x = exprmean, y = pm, label = SYMBOL)) +
 
 ggsave("figs/montoro_ionocyte.png", width = 133, height = 100, units = "mm")
 
-notable.genes <- c("Cftr", "Foxi1", "Ascl3", "Atp6v0d2")
-plt <- ggplot(tib, aes(x = exprmean, y = pm, label = SYMBOL)) +
-  geom_point() +
-  geom_text_repel(aes(color = SYMBOL %in% notable.genes), size = 4, fontface = "italic",
-                  segment.color = "darkgray", segment.size = 0.25,
-                  min.segment.length = 0, na.rm = TRUE, max.overlaps = 20) +
-  theme_minimal() +
-  labs(
-    x = "Mean Expression (log10)",
-    y = "Gene Loading \n",
-    title = "Component 20 (Ionocytes)"
-  ) +
-  scale_color_manual(values = c("darkgray", "red")) +
-  theme(
-    plot.title = element_text(size = 14, family = "serif", hjust = 0.5),
-    axis.text.y = element_text(size = 10, family = "serif"),
-    axis.text.x = element_text(size = 10, family = "serif"),
-    axis.title = element_text(size = 14, margin = margin(2, 2, 2, 2), family = "serif"),
-    legend.position = "none"
-  )
-
-ggsave("figs/montoro_ionocyte_poster.png", width = 133, height = 100, units = "mm")
+# notable.genes <- c("Cftr", "Foxi1", "Ascl3", "Atp6v0d2")
+# plt <- ggplot(tib, aes(x = exprmean, y = pm, label = SYMBOL)) +
+#   geom_point() +
+#   geom_text_repel(aes(color = SYMBOL %in% notable.genes), size = 4, fontface = "italic",
+#                   segment.color = "darkgray", segment.size = 0.25,
+#                   min.segment.length = 0, na.rm = TRUE, max.overlaps = 20) +
+#   theme_minimal() +
+#   labs(
+#     x = "Mean Expression (log10)",
+#     y = "Gene Loading \n",
+#     title = "Component 20 (Ionocytes)"
+#   ) +
+#   scale_color_manual(values = c("darkgray", "red")) +
+#   theme(
+#     plot.title = element_text(size = 14, family = "serif", hjust = 0.5),
+#     axis.text.y = element_text(size = 10, family = "serif"),
+#     axis.text.x = element_text(size = 10, family = "serif"),
+#     axis.title = element_text(size = 14, margin = margin(2, 2, 2, 2), family = "serif"),
+#     legend.position = "none"
+#   )
+#
+# ggsave("figs/montoro_ionocyte_poster.png", width = 133, height = 100, units = "mm")
 
