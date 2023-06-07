@@ -1,7 +1,7 @@
 # datfile must be list including counts, pc, sf, and var.genes
-# packages needed: RcppML, fastTopics, pCMF
+# packages needed: RcppML, fastTopics
 
-maxiter <- 500
+maxiter <- 200
 
 do_fit <- function(datfile, method, K, select.genes, outfile) {
   if (method == "nmf-log") {
@@ -45,7 +45,7 @@ fit_nmf <- function(datfile, K, select.genes, outfile, link) {
   best_obj <- Inf
   for (i in 1:ntrials) {
     fit <- RcppML::nmf(dat, K, maxit = maxiter, seed = i)
-    obj <- sum((dat - fit$w %*% fit$h)^2)
+    obj <- sum((dat - fit$w %*% diag(fit$d) %*% fit$h)^2)
     if (obj < best_obj) {
       best_obj <- obj
       best_fit <- fit
@@ -60,16 +60,21 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
   pp.dat <- readRDS(datfile)
 
   if (select.genes) {
-    dat <- pp.dat$counts
-  } else {
     dat <- pp.dat$counts[pp.dat$var.genes, ]
+  } else {
+    dat <- pp.dat$counts
   }
 
   rm(pp.dat)
-  dat <- as(dat, "dgCMatrix")
+  dat <- as(dat, "CsparseMatrix")
 
   t0 <- Sys.time()
-  fit <- fastTopics::fit_poisson_nmf(dat, K, numiter = maxiter)
+  fit <- fastTopics::fit_poisson_nmf(
+    dat,
+    K,
+    control = list(extrapolate = TRUE),
+    numiter = maxiter
+  )
   t1 <- Sys.time()
 
   saveRDS(list(t = t1 - t0, fit = fit), outfile)
@@ -108,21 +113,9 @@ fit_ebmf <- function(datfile, K, select.genes, outfile, link) {
   ebnm.fn = ebnm::ebnm_point_exponential
   init.fn = function(f) init.fn.default(f, dim.signs = c(1, 1))
 
-  intercept <- list(
-    matrix(rowMeans(dat), ncol = 1),
-    matrix(rep(1, ncol(dat)), ncol = 1)
-  )
-  init.fl <- flash.init(dat, S = min.sd, var.type = 1) %>%
-    flash.init.factors(
-      intercept,
-      ebnm.fn = as.ebnm.fn(prior_family = "point_normal", mode = "estimate")
-    ) %>%
-    flash.fix.factors(kset = 1, mode = 2L) %>%
-    flash.backfit(verbose = 0)
-
-  fl <- init.fl %>%
+  fl <- flash.init(dat, S = min.sd, var.type = 1) %>%
     flash.add.greedy(
-      Kmax = min(K - 1, 10),
+      Kmax = min(K, 10),
       ebnm.fn = ebnm.fn,
       init.fn = init.fn
     )

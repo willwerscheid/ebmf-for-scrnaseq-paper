@@ -1,12 +1,16 @@
 library(tidyverse)
-library(gt)
-library(Polychrome)
+library(clusterProfiler)
+library(org.Mm.eg.db)
 library(ggrepel)
+library(gt)
+library(fastTopics)
+library(cowplot)
+library(Polychrome)
 
 exprmean <- log10(readRDS("data/pijuan-sala-mean-expr.rds")$var.gene.mean.expr)
 
-ebnmf <- readRDS("output/pijuan-sel-ebmf-log-k=40.rds")
-nnlm <- readRDS("output/pijuan-sel-nmf-log-k=40.rds")
+ebnmf <- readRDS("output/ps-ebmf-40.rds")
+nnlm <- readRDS("output/ps-nmf.rds")
 
 fl <- ebnmf$fit
 LL <- scale(fl$L.pm, center = FALSE, scale = apply(fl$L.pm, 2, max))
@@ -92,23 +96,26 @@ ggplot(endo.tib, aes(x = Loading, color = Lineage)) +
     axis.text.y = element_text(size = 8, family = "serif"),
     axis.text.x = element_text(size = 8, family = "serif"),
     axis.title = element_text(size = 10, margin = margin(2, 2, 2, 2), family = "serif"),
-    strip.text.x = element_text(size = 10, margin = margin(2, 2, 2, 2), family = "serif")
+    strip.text.x = element_text(size = 10, margin = margin(2, 2, 2, 2), family = "serif"),
+    legend.title = element_text(size = 10, family = "serif"),
+    legend.text = element_text(size = 8, family = "serif"),
+    panel.spacing = unit(0.5, "cm")
   ) +
   facet_wrap(~k, nrow = 1)
 
-ggsave("figs/pijuan-sala_endothelium.png", width = 100, height = 70, units = "mm")
+ggsave("figs/pijuan-sala_endothelium.png", width = 133, height = 100, units = "mm")
 
-endo <- which(cell.type %in% c(
-  "Endothelium", "Haematoendothelial progenitors", "Blood progenitors 1"
-))
-endo.tib2 <- tibble(
-  Comp12 = FF[endo, 12],
-  Comp22 = FF[endo, 22],
-  Lineage = cell.type[endo],
-  Type = wild.type[endo]
-)
-ggplot(endo.tib2, aes(x = Comp12, y = Comp22, color = Type, shape = Lineage)) +
-  geom_point(size = 1)
+# endo <- which(cell.type %in% c(
+#   "Endothelium", "Haematoendothelial progenitors", "Blood progenitors 1"
+# ))
+# endo.tib2 <- tibble(
+#   Comp12 = FF[endo, 12],
+#   Comp22 = FF[endo, 22],
+#   Lineage = cell.type[endo],
+#   Type = wild.type[endo]
+# )
+# ggplot(endo.tib2, aes(x = Comp12, y = Comp22, color = Type, shape = Lineage)) +
+#   geom_point(size = 1)
 
 
 # Downsample the number of cells. Sort them using t-SNE.
@@ -186,8 +193,8 @@ ggplot(heatmap.tib, aes(x = Component, y = -Cell.idx, fill = Loading)) +
                      minor_breaks = NULL,
                      labels = levels(cell.type)) +
   theme_minimal() +
-  geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
-  geom_hline(yintercept = -wt_breaks, size = 0.1, linetype = "dashed") +
+  geom_hline(yintercept = -cell_type_breaks, linewidth = 0.1) +
+  geom_hline(yintercept = -wt_breaks, linewidth = 0.1, linetype = "dashed") +
   facet_wrap(~Method, scales = "free", ncol = 1) +
   theme(
     legend.position = "none",
@@ -211,63 +218,223 @@ genes.tib <- genes.tib %>%
   group_by(Component) %>%
   summarize(TopGenes = paste(SYMBOL, collapse = ", "))
 
+all.gsea.res <- character(40)
+for (i in 1:40) {
+  cat("Factor", i, "\n")
+  gene.list <- ebnmf$fit$L.pm[, i]
+  names(gene.list) <- rownames(ebnmf$fit$L.pm)
+  gene.list <- sort(gene.list, decreasing = TRUE)[1:100]
+  gene.list <- names(gene.list)
+  gsea.res <- enrichGO(
+    gene.list,
+    universe = rownames(ebnmf$fit$L.pm),
+    ont = "ALL",
+    OrgDb = org.Mm.eg.db,
+    keyType = "SYMBOL",
+    readable = TRUE
+  )
+  top.sets <- gsea.res@result$Description[1]
+  all.gsea.res[i] <- top.sets
+}
+genes.tib <- genes.tib %>%
+  add_column(GOTerms = all.gsea.res)
+
 tbl <- genes.tib %>%
-  filter(!(Component %in% c(27, 31, 34, 37, 39))) %>%
-  rename(`Top Genes` = TopGenes) %>%
+  filter(!(Component %in% c(31, 33, 34, 36, 39))) %>%
+  dplyr::rename(`Top Genes` = TopGenes,
+                `Top GO Term` = GOTerms) %>%
   gt() %>%
   cols_align("left", columns = Component) %>%
   cols_align("left", columns = `Top Genes`) %>%
+  cols_align("left", columns = `Top GO Term`) %>%
   cols_width(
-    Component ~ pct(12),
-    `Top Genes` ~ pct(88)
+    Component ~ pct(10),
+    `Top Genes` ~ pct(55),
+    `Top GO Term` ~ pct(35)
   ) %>%
-  opt_row_striping()
+  opt_row_striping() %>%
+  tab_options(table.font.size = 10)
 
 gtsave(tbl, paste0("figs/pijuan-sala_topgenes.png"))
 
 
+# make_gene_tib <- function(k, lbl_slope, lbl_intercept) {
+#   tib <- tibble(
+#     comp = paste("Component", k),
+#     pm = ebnmf$fit$L.pm[, k] / max(abs(ebnmf$fit$L.pm[, k])),
+#     SYMBOL = rownames(ebnmf$fit$L.pm),
+#     exprmean = exprmean
+#   ) %>%
+#     mutate(disp_SYMBOL = ifelse(pm > .125 & exprmean < lbl_slope * pm + lbl_intercept, SYMBOL, ""))
+#
+#   return(tib)
+# }
+# tib <- make_gene_tib(12, 10, -3.5) %>%
+#   bind_rows(make_gene_tib(22, 9, -3.6))
+#
+# diff_genes <- tib %>%
+#   select(-disp_SYMBOL) %>%
+#   pivot_wider(names_from = comp, values_from = c(pm)) %>%
+#   mutate(diff = `Component 12`/`Component 22`) %>%
+#   filter(diff > 4 | diff < 0.25) %>%
+#   pull(SYMBOL)
+# tib <- tib %>%
+#   mutate(lbl_color = ifelse(disp_SYMBOL %in% diff_genes, "red", "darkgray"))
+#
+# plt <- ggplot(tib, aes(x = pm, y = exprmean, label = disp_SYMBOL)) +
+#   geom_point() +
+#   geom_text_repel(color = tib$lbl_color, size = 2, fontface = "italic",
+#                   segment.color = "darkgray", segment.size = 0.25,
+#                   min.segment.length = 0, na.rm = TRUE, max.overlaps = 20) +
+#   theme_minimal() +
+#   labs(
+#     x = "Gene Loading (posterior mean)",
+#     y = "Mean Expression (log10)",
+#   ) +
+#   theme(
+#     axis.text.y = element_text(size = 8, family = "serif"),
+#     axis.text.x = element_text(size = 8, family = "serif"),
+#     axis.title = element_text(size = 10, margin = margin(2, 2, 2, 2), family = "serif")
+#   ) +
+#   facet_wrap(~comp, ncol = 1)
+#
+# ggsave("figs/pijuan-sala_comp.png", width = 133, height = 200, units = "mm")
 
 
+tm20 <- readRDS("./output/ps-topics-20.rds")
+tm30 <- readRDS("./output/ps-topics-30.rds")
+tm40 <- readRDS("./output/ps-topics-40.rds")
 
-make_gene_tib <- function(k, lbl_slope, lbl_intercept) {
-  tib <- tibble(
-    comp = paste("Component", k),
-    pm = ebnmf$fit$L.pm[, k] / max(abs(ebnmf$fit$L.pm[, k])),
-    SYMBOL = rownames(ebnmf$fit$L.pm),
-    exprmean = exprmean
-  ) %>%
-    mutate(disp_SYMBOL = ifelse(pm > .125 & exprmean < lbl_slope * pm + lbl_intercept, SYMBOL, ""))
+ebmf20 <- readRDS("./output/ps-ebmf-20.rds")
+ebmf30 <- readRDS("./output/ps-ebmf-30.rds")
+ebmf40 <- readRDS("./output/ps-ebmf-40.rds")
 
-  return(tib)
+# subset.idx <- which(cell.type %in% levels(cell.type)[15:21])
+subset.idx <- which(cell.type %in% levels(cell.type)[c(3:5, 28, 31)])
+
+grp <- paste(
+  cell.type[subset.idx],
+  ifelse(wild.type[subset.idx] == "Wild type", "(WT)", "(KO)")
+)
+# grp <- factor(grp, levels = sort(unique(grp))[c(4, 3, 9, 8, 1, 2, 5:7)])
+grp <- factor(grp, levels = sort(unique(grp))[c(5:7, 1:4, 8:9)])
+
+get.tm.FF <- function(tm) {
+  tm.FF <- t(scale(t(tm$fit$F), center = FALSE, scale = rowSums(tm$fit$F)))[cell.idx, ]
+  tm.FF <- tm.FF[subset.idx, ]
+  return(tm.FF)
 }
-tib <- make_gene_tib(12, 10, -3.5) %>%
-  bind_rows(make_gene_tib(22, 9, -3.6))
 
-diff_genes <- tib %>%
-  select(-disp_SYMBOL) %>%
-  pivot_wider(names_from = comp, values_from = c(pm)) %>%
-  mutate(diff = `Component 12`/`Component 22`) %>%
-  filter(diff > 4 | diff < 0.25) %>%
-  pull(SYMBOL)
-tib <- tib %>%
-  mutate(lbl_color = ifelse(disp_SYMBOL %in% diff_genes, "red", "darkgray"))
+get.ebmf.FF <- function(ebmf) {
+  ebmf.FF <- (scale(ebmf$fit$F.pm, center = FALSE) %*% diag(sqrt(ebmf$fit$pve)))[cell.idx, order(-ebmf$fit$pve)]
+  ebmf.FF <- ebmf.FF[subset.idx, -1]
+  return(ebmf.FF)
+}
 
-plt <- ggplot(tib, aes(x = pm, y = exprmean, label = disp_SYMBOL)) +
-  geom_point() +
-  geom_text_repel(color = tib$lbl_color, size = 2, fontface = "italic",
-                  segment.color = "darkgray", segment.size = 0.25,
-                  min.segment.length = 0, na.rm = TRUE, max.overlaps = 20) +
-  theme_minimal() +
-  labs(
-    x = "Gene Loading (posterior mean)",
-    y = "Mean Expression (log10)",
+# There are only 31 usable colors, so we need to remove some factors:
+ebmf.ref.FF <- get.ebmf.FF(ebmf40)
+which.factors <- sort(order(-apply(ebmf.ref.FF, 2, max))[1:31])
+ebmf.ref.FF <- ebmf.ref.FF[, which.factors]
+
+tm.ref.FF <- get.tm.FF(tm40)
+which.factors <- sort(order(-apply(tm.ref.FF, 2, max))[1:31])
+tm.ref.FF <- tm.ref.FF[, which.factors]
+
+# Keep cell order the same across plots:
+ref.fit <- list(L = ebmf.ref.FF, F = ebmf.ref.FF)
+class(ref.fit) <- "multinom_topic_model_fit"
+ebmf.cell.order <- NULL
+for (group in levels(grp)) {
+  i <- which(grp == group)
+  if (length(i) > 0)
+    y <- tsne_from_topics(select_loadings(ref.fit, i), dims = 1, verbose = FALSE)
+  ebmf.cell.order <- c(ebmf.cell.order, i[order(y)])
+}
+
+ref.fit <- list(L = tm.ref.FF, F = tm.ref.FF)
+class(ref.fit) <- "multinom_topic_model_fit"
+tm.cell.order <- NULL
+for (group in levels(grp)) {
+  i <- which(grp == group)
+  if (length(i) > 0)
+    y <- tsne_from_topics(select_loadings(ref.fit, i), dims = 1, verbose = FALSE)
+  tm.cell.order <- c(tm.cell.order, i[order(y)])
+}
+
+do.struct.plot <- function(LL, ref.FF, cell.order) {
+  topic.matches <- rep(0, ncol(LL))
+  cormat <- cor(LL, ref.FF)
+  for (i in 1:ncol(LL)) {
+    j <- row(cormat)[which.max(cormat)]
+    k <- col(cormat)[which.max(cormat)]
+    topic.matches[j] <- k
+    cormat[j, ] <- 0
+    cormat[, k] <- 0
+  }
+
+  topic.colors <- rep("#808080", ncol(LL))
+  for (i in 1:ncol(LL)) {
+    if (topic.matches[i] > 0) {
+      topic.colors[i] <-  as.character(glasbey.colors(32)[-1])[topic.matches[i]]
+    }
+  }
+
+  fit <- list(L = LL, F = LL)
+  class(fit) <- "multinom_topic_model_fit"
+
+  set.seed(666)
+  structure_plot(
+    fit,
+    grouping = grp,
+    colors = topic.colors,
+    topics = order(topic.matches),
+    loadings_order = cell.order,
+    gap = 10
   ) +
+    theme(
+      legend.position = "none",
+      axis.text.y = element_blank(),
+    ) +
+    labs(y = "")
+}
+
+ebmf20p <- do.struct.plot(get.ebmf.FF(ebmf20), ebmf.ref.FF, ebmf.cell.order) +
+  labs(title = "EBNMF", y = "K = 20") +
   theme(
-    axis.text.y = element_text(size = 8, family = "serif"),
-    axis.text.x = element_text(size = 8, family = "serif"),
-    axis.title = element_text(size = 10, margin = margin(2, 2, 2, 2), family = "serif")
-  ) +
-  facet_wrap(~comp, ncol = 1)
+    axis.text.x = element_blank(),
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 16)
+  )
+ebmf30p <- do.struct.plot(get.ebmf.FF(ebmf30), ebmf.ref.FF, ebmf.cell.order) +
+  labs(y = "K = 30") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.y = element_text(size = 10)
+  )
+ebmf40p <- do.struct.plot(get.ebmf.FF(ebmf40), ebmf.ref.FF, ebmf.cell.order) +
+  labs(y = "K = 40") +
+  theme(axis.title.y = element_text(size = 10))
 
-ggsave("figs/pijuan-sala_comp.png", width = 133, height = 200, units = "mm")
+tm20p <- do.struct.plot(get.tm.FF(tm20), tm.ref.FF, tm.cell.order) +
+  labs(title = "Topics") +
+  theme(
+    axis.text.x = element_blank(),
+    plot.title = element_text(size = 16)
+  )
+tm30p <- do.struct.plot(get.tm.FF(tm30), tm.ref.FF, tm.cell.order) +
+  theme(axis.text.x = element_blank())
+tm40p <- do.struct.plot(get.tm.FF(tm40), tm.ref.FF, tm.cell.order)
 
+empty_plot <- ggplot() + theme_void()
+
+plot_grid(
+  empty_plot, empty_plot, empty_plot,
+  ebmf20p, ebmf30p, ebmf40p,
+  tm20p, tm30p, tm40p,
+  ncol = 3,
+  byrow = FALSE,
+  rel_heights = c(1.12, 1, 1.65),
+  rel_widths = c(.2, 1, 1)
+)
+
+ggsave("figs/pijuan-sala_varyK_gut.png", width = 175, height = 190, units = "mm")

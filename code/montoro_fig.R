@@ -1,13 +1,14 @@
 library(tidyverse)
-library(gt)
-library(Polychrome)
+library(clusterProfiler)
+library(org.Mm.eg.db)
 library(ggrepel)
+library(gt)
 
 exprmean <- log10(readRDS("data/montoro-mean-expr.rds")$var.gene.mean.expr)
 
-ebnmf <- readRDS("output/montoro-sel-ebmf-log-k=30.rds")
-nnlm <- readRDS("output/montoro-sel-nmf-log-k=30.rds")
-tm <- readRDS("output/montoro-sel-topics-k=30.rds")
+ebnmf <- readRDS("output/montoro-ebmf.rds")
+nnlm <- readRDS("output/montoro-nmf.rds")
+tm <- readRDS("output/montoro-topics.rds")
 
 fl <- ebnmf$fit
 FF <- fl$F.pm
@@ -99,7 +100,7 @@ tib <- heatmap.tib %>%
 cell_type_breaks <- c(1, which(tib$Cell.type[-1] != tib$Cell.type[-nrow(tib)]))
 label_pos <- cell_type_breaks / 2 + c(cell_type_breaks[-1], nrow(tib)) / 2
 
-ggplot(heatmap.tib, aes(x = Component, y = -Cell.idx, fill = Loading)) +
+plt <- ggplot(heatmap.tib, aes(x = Component, y = -Cell.idx, fill = Loading)) +
   geom_tile() +
   scale_fill_gradient2(high = "black") +
   labs(y = "") +
@@ -107,7 +108,7 @@ ggplot(heatmap.tib, aes(x = Component, y = -Cell.idx, fill = Loading)) +
                      minor_breaks = NULL,
                      labels = levels(cell.type)) +
   theme_minimal() +
-  geom_hline(yintercept = -cell_type_breaks, size = 0.1) +
+  geom_hline(yintercept = -cell_type_breaks, linewidth = 0.1) +
   facet_wrap(~Method, scales = "free", ncol = 1) +
   theme(
     legend.position = "none",
@@ -119,9 +120,52 @@ ggplot(heatmap.tib, aes(x = Component, y = -Cell.idx, fill = Loading)) +
 
 ggsave("figs/montoro_heatmap.png", width = 163, height = 190, units = "mm")
 
+poster.tib.ebnmf <- heatmap.tib %>%
+  filter(Method == "EBNMF") %>%
+  mutate(Loading = ifelse(Component == "20", -Loading, Loading)) %>%
+  mutate(Cell.type = fct_recode(Cell.type, `Club (hillock)` = "Club (hillock-associated)"))
+plt <- ggplot(poster.tib.ebnmf, aes(x = Component, y = -Cell.idx, fill = Loading)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "red", mid = "white", high = "black") +
+  labs(y = "", title = "EBNMF") +
+  scale_y_continuous(breaks = -label_pos,
+                     minor_breaks = NULL,
+                     labels = levels(poster.tib.ebnmf$Cell.type)) +
+  theme_minimal() +
+  geom_hline(yintercept = -cell_type_breaks, linewidth = 0.1) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 16, family = "serif", hjust = 0.5),
+    axis.text.y = element_text(size = 13, family = "serif"),
+    axis.text.x = element_text(size = 9, family = "serif"),
+    axis.title = element_text(size = 14, margin = margin(2, 2, 2, 2), family = "serif")
+  )
+
+ggsave("figs/montoro_ebnmf_heatmap_poster.png", width = 163, height = 95, units = "mm")
+
+poster.tib.nmf <- heatmap.tib %>%
+  filter(Method == "NMF") %>%
+  mutate(Loading = ifelse(Component == "30", -Loading, Loading)) %>%
+  mutate(Cell.type = fct_recode(Cell.type, `Club (hillock)` = "Club (hillock-associated)"))
+plt <- ggplot(poster.tib.nmf, aes(x = Component, y = -Cell.idx, fill = Loading)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "red", mid = "white", high = "black") +
+  labs(x = "", y = "", title = "NMF") +
+  scale_y_continuous(breaks = -label_pos,
+                     minor_breaks = NULL,
+                     labels = NULL) +
+  theme_minimal() +
+  geom_hline(yintercept = -cell_type_breaks, linewidth = 0.1) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 16, family = "serif", hjust = 0.5),
+    axis.text.x = element_blank()
+  )
+
+ggsave("figs/montoro_nmf_heatmap_poster.png", width = 163 / 2, height = 95 / 2, units = "mm")
 
 top.genes <- apply(ebnmf$fit$L.pm, 2, function(k) {
-  rownames(ebnmf$fit$L.pm)[order(k, decreasing = TRUE)[1:10]]
+  rownames(ebnmf$fit$L.pm)[order(k, decreasing = TRUE)[1:12]]
 })
 colnames(top.genes) <- paste0("k=", formatC(1:ncol(top.genes), width = 2, flag = "0"))
 genes.tib <- as_tibble(top.genes) %>%
@@ -131,22 +175,47 @@ genes.tib <- genes.tib %>%
   group_by(Component) %>%
   summarize(TopGenes = paste(SYMBOL, collapse = ", "))
 
+all.gsea.res <- character(30)
+for (i in 1:30) {
+  cat("Factor", i, "\n")
+  gene.list <- ebnmf$fit$L.pm[, i]
+  names(gene.list) <- rownames(ebnmf$fit$L.pm)
+  gene.list <- sort(gene.list, decreasing = TRUE)[1:100]
+  gene.list <- names(gene.list)
+  gsea.res <- enrichGO(
+    gene.list,
+    universe = rownames(ebnmf$fit$L.pm),
+    ont = "ALL",
+    OrgDb = org.Mm.eg.db,
+    keyType = "SYMBOL",
+    readable = TRUE
+  )
+  top.sets <- gsea.res@result$Description[1]
+  all.gsea.res[i] <- top.sets
+}
+genes.tib <- genes.tib %>%
+  add_column(GOTerms = all.gsea.res)
+
 tbl <- genes.tib %>%
-  filter(Component %in% c(1:16, 18:19, 21:22, 29)) %>%
-  rename(`Top Genes` = TopGenes) %>%
+  filter(!(Component %in% c(27, 30))) %>%
+  dplyr::rename(`Top Genes` = TopGenes,
+                `Top GO Term` = GOTerms) %>%
   gt() %>%
   cols_align("left", columns = Component) %>%
   cols_align("left", columns = `Top Genes`) %>%
+  cols_align("left", columns = `Top GO Term`) %>%
   cols_width(
-    Component ~ pct(12),
-    `Top Genes` ~ pct(88)
+    Component ~ pct(10),
+    `Top Genes` ~ pct(55),
+    `Top GO Term` ~ pct(35)
   ) %>%
-  opt_row_striping()
+  opt_row_striping() %>%
+  tab_options(table.font.size = 10)
 
 gtsave(tbl, paste0("figs/montoro_topgenes.png"))
 
 
-k <- 21
+k <- 20
 tib <- tibble(
   pm = ebnmf$fit$L.pm[, k] / max(abs(ebnmf$fit$L.pm[, k])),
   z = abs(ebnmf$fit$L.pm[, k]) / pmax(sqrt(.Machine$double.eps), ebnmf$fit$L.psd[, k]),
@@ -157,17 +226,17 @@ tib <- tibble(
   group_by(expr_bin) %>%
   mutate(bin_quantile = rank(pm) / n()) %>%
   # mutate(SYMBOL = ifelse(pm > .125 & bin_quantile > .994, SYMBOL, ""))
-  mutate(SYMBOL = ifelse(pm > .125 & 8 * pm - exprmean > 3.5, SYMBOL, ""))
+  mutate(SYMBOL = ifelse(pm > .125 & 8 * pm - exprmean > 3.45, SYMBOL, ""))
 
-plt <- ggplot(tib, aes(x = pm, y = exprmean, label = SYMBOL)) +
+plt <- ggplot(tib, aes(x = exprmean, y = pm, label = SYMBOL)) +
   geom_point() +
   geom_text_repel(color = "darkgray",size = 2.25, fontface = "italic",
                   segment.color = "darkgray", segment.size = 0.25,
                   min.segment.length = 0, na.rm = TRUE, max.overlaps = 20) +
   theme_minimal() +
   labs(
-    x = "Gene Loading (posterior mean)",
-    y = "Mean Expression (log10)",
+    x = "Mean Expression (log10)",
+    y = "Gene Loading (posterior mean)"
   ) +
   theme(
     axis.text.y = element_text(size = 8, family = "serif"),
@@ -176,4 +245,27 @@ plt <- ggplot(tib, aes(x = pm, y = exprmean, label = SYMBOL)) +
   )
 
 ggsave("figs/montoro_ionocyte.png", width = 133, height = 100, units = "mm")
+
+notable.genes <- c("Cftr", "Foxi1", "Ascl3", "Atp6v0d2")
+plt <- ggplot(tib, aes(x = exprmean, y = pm, label = SYMBOL)) +
+  geom_point() +
+  geom_text_repel(aes(color = SYMBOL %in% notable.genes), size = 4, fontface = "italic",
+                  segment.color = "darkgray", segment.size = 0.25,
+                  min.segment.length = 0, na.rm = TRUE, max.overlaps = 20) +
+  theme_minimal() +
+  labs(
+    x = "Mean Expression (log10)",
+    y = "Gene Loading \n",
+    title = "Component 20 (Ionocytes)"
+  ) +
+  scale_color_manual(values = c("darkgray", "red")) +
+  theme(
+    plot.title = element_text(size = 14, family = "serif", hjust = 0.5),
+    axis.text.y = element_text(size = 10, family = "serif"),
+    axis.text.x = element_text(size = 10, family = "serif"),
+    axis.title = element_text(size = 14, margin = margin(2, 2, 2, 2), family = "serif"),
+    legend.position = "none"
+  )
+
+ggsave("figs/montoro_ionocyte_poster.png", width = 133, height = 100, units = "mm")
 

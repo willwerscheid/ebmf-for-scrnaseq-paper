@@ -1,4 +1,5 @@
-# Chimera-tal1 dataset from Pijuan-Sala et al.
+# Chimera-tal1 dataset from Pijuan-Sala et al. Must first clone EmbryoTimecourse2018
+#   repo, run download script, and unzip folder (only need Tal1-chimera data).
 
 library(tidyverse)
 source("../code/preprocess.R")

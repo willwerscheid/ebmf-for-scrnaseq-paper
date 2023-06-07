@@ -20,7 +20,7 @@ sim_data <- function(n = 100,
   # Additional sparse nonnegative factors.
   for (k in (K.dense + 1):K) {
     L.nn.idx <- seq((k - K.dense - 1) * L.nn + 1, (k - K.dense) * L.nn)
-    F.nn.idx <- seq((k - K.dense - 1) * (F.nn / 2) + 1, (k + K.dense) * (F.nn / 2))
+    F.nn.idx <- seq((k - K.dense - 1) * (F.nn / 2) + 1, (k - K.dense + 1) * (F.nn / 2))
     LL[setdiff(1:n, L.nn.idx), k] <- 0
     FF[setdiff(1:p, F.nn.idx), k] <- 0
   }
@@ -39,16 +39,16 @@ simdat <- sim_data(K = 6)
 
 # Use true value of K.
 t0 <- Sys.time()
-nnlm_res1 <- NNLM::nnmf(simdat$Y, k = 6, verbose = 0, rel.tol = 1e-6, max.iter = 10000L)
+nnlm_res1 <- RcppML::nmf(simdat$Y, k = 6, verbose = FALSE, tol = 1e-6, maxit = 10000L)
 nnlm_t1 <- Sys.time() - t0
 
 niter <- 30
 t0 <- Sys.time()
 nnlm_res2 <- nnlm_res1
-best_obj <- rev(nnlm_res1$mse)[1]
-for (i in 1:(niter - 1)) {
-  nnlm_res <- NNLM::nnmf(simdat$Y, k = 6, verbose = 0, rel.tol = 1e-6, max.iter = 10000L)
-  obj <- rev(nnlm_res$mse)[1]
+best_obj <- mean((simdat$Y - nnlm_res1$w %*% diag(nnlm_res1$d) %*% nnlm_res1$h)^2)
+for (i in 2:niter) {
+  nnlm_res <- RcppML::nmf(simdat$Y, k = 6, verbose = FALSE, tol = 1e-6, maxit = 10000L)
+  obj <- mean((simdat$Y - nnlm_res$w %*% diag(nnlm_res$d) %*% nnlm_res$h)^2)
   if (obj < best_obj) {
     nnlm_res2 <- nnlm_res
     best_obj <- obj
@@ -90,11 +90,11 @@ suppressMessages({
     bind_rows(to_tibble(ebnmf_res$L.pm, "EBNMF", "L", ebnmf_idx)) %>%
     bind_rows(to_tibble(ebnmf_res$F.pm, "EBNMF", "F", ebnmf_idx))
   tib <- tib %>%
-    bind_rows(to_tibble(nnlm_res1$W, "NMF, one run", "L", nnlm_idx1)) %>%
-    bind_rows(to_tibble(t(nnlm_res1$H), "NMF, one run", "F", nnlm_idx1))
+    bind_rows(to_tibble(nnlm_res1$w, "NMF, one run", "L", nnlm_idx1)) %>%
+    bind_rows(to_tibble(t(nnlm_res1$h), "NMF, one run", "F", nnlm_idx1))
   tib <- tib %>%
-    bind_rows(to_tibble(nnlm_res2$W, "NMF, best run", "L", nnlm_idx2)) %>%
-    bind_rows(to_tibble(t(nnlm_res2$H), "NMF, best run", "F", nnlm_idx2))
+    bind_rows(to_tibble(nnlm_res2$w, "NMF, best run", "L", nnlm_idx2)) %>%
+    bind_rows(to_tibble(t(nnlm_res2$h), "NMF, best run", "F", nnlm_idx2))
   tib <- tib %>%
     mutate(k = as.numeric(str_remove_all(k, "\\."))) %>%
     mutate(
@@ -116,7 +116,23 @@ ggplot(tib, aes(x = k, y = row, fill = value)) +
     legend.position = "none"
   )
 
-ggsave("figs/sim_res.png", width = 100, height = 60, units = "mm")
+ggsave("../figs/sim_res.png", width = 100, height = 60, units = "mm")
+
+tib_poster <- tib %>%
+  filter(type != "NMF, one run") %>%
+  mutate(type = fct_drop(fct_recode(type, `Vanilla NMF` = "NMF, best run")))
+ggplot(tib_poster, aes(x = k, y = row, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(high = "black") +
+  facet_grid(rows = vars(dim), cols = vars(type), scales = "free", switch = "y") +
+  theme_void() +
+  theme(
+    strip.text.x = element_text(size = 14, margin = margin(2, 2, 2), family = "serif"),
+    strip.text.y.left = element_text(size = 14, margin = margin(4, 4, 4), family = "serif", angle = 0),
+    legend.position = "none"
+  )
+
+ggsave("./figs/sim_res_poster.png", width = 100, height = 60, units = "mm")
 
 cat("Time to run EBNMF:", format(ebnmf_t, units= "auto"), "\n")
-cat("Time to do", niter, "NMF runs):", format(nnlm_t2, units= "auto"), "\n")
+cat("Time to do", niter, "NMF runs:", format(nnlm_t2, units= "auto"), "\n")
