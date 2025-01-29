@@ -11,3 +11,4 @@ analysis/site_libs
 data/*.rds
 output/*.rds
 output/*.Rout
+figs/
