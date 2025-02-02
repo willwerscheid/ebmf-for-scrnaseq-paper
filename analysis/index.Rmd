@@ -10,3 +10,5 @@ editor_options:
 
 [Figures.](viz.html)
 [All heatmaps.](viz_all.html)
+
+[Structure plots for Montoro et al. data.](montoro_structure.html)
