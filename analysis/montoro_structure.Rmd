@@ -17,6 +17,7 @@ Load the Tidyverse:
 ```{r, message=FALSE}
 library(tidyverse)
 library(cowplot)
+library(gt)
 ```
 
 Load the `flashier` results:
@@ -165,13 +166,87 @@ glasbey <- function(k) {
 }
 ```
 
+The following function is used to generate tables of gene set annotations:
+
+```{r}
+make_tbl <- function(GSEA, ksort) {
+  klabs <- tibble(
+    korig = sort(ksort),
+    ksort = ksort,
+    label = factor(names(ksort), levels = names(ksort))
+  )
+
+  keep_res <- GSEA |>
+    # Remove "identical" gene sets (userId lists genes found in set)
+    left_join(klabs, by = c("k" = "ksort")) |>
+    group_by(k, userId) |>
+    arrange(FDR) |>
+    slice_head(n = 1) |>
+    group_by(k) |>
+    slice_min(FDR, n = 5) |>
+    filter(FDR < 0.05 | rank(FDR) == min(rank(FDR))) |>
+    ungroup()
+
+  shared_genesets <- keep_res |>
+    group_by(geneSet) |>
+    filter(n() > 1) |>
+    ungroup()
+  distinctive_genesets <- keep_res |>
+    anti_join(shared_genesets)
+
+  shared_genesets <- shared_genesets |>
+    group_by(geneSet, description) |>
+    arrange(label) |>
+    summarize(components = paste0(label, collapse = ", "),
+              FDR = ifelse(
+                n() < 4,
+                paste(ifelse(FDR < .01, "<.01", round(FDR, 2)), collapse = ", "),
+                paste("all <", round(max(FDR) + 0.005001, 2))
+              ),
+              order1 = label[1], order2 = label[2],
+              .groups = "drop") |>
+    arrange(order1, order2) |>
+    select(-order1, -order2)
+  distinctive_genesets <- distinctive_genesets |>
+    group_by(geneSet, description) |>
+    summarize(components = paste0(label, collapse = ", "),
+              order2 = FDR[1],
+              FDR = paste(ifelse(FDR < .01, "<.01", round(FDR, 2)), collapse = ", "),
+              order1 = label[1],
+              .groups = "drop") |>
+    arrange(order1, order2) |>
+    select(-order1, -order2)
+
+  genesets <- shared_genesets |>
+    bind_rows(distinctive_genesets) |>
+    group_by(components)
+
+  gt_tbl <- gt(genesets) |>
+    #cols_move_to_start(columns = components) |>
+    cols_label(
+      geneSet = "Gene Set",
+      description = "Description",
+      components = "Components"
+    ) |>
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_row_groups()
+    ) |>
+    tab_options(
+      table.font.size = 11
+    )
+  return(gt_tbl)
+}
+```
+
+
 ## EBNMF
 
 In each case I manually sort and label factors.
 
 ```{r fig.height=12, fig.width=8, message=FALSE}
 ebnmf_ksort <- c(
-  27, 30, 26, # Sparse
+  26, 27, 30, # Sparse
   1, 8, 10, 16, # Dense
   11, 12, 2, 24, # Time points
   6, 13, 22, # Ciliated
@@ -189,7 +264,7 @@ names(ebnmf_ksort) <- c(
   "Prl-a", "Prl-b", "Prl-c",
   "Bas-a", "Bas-b", "Bas-c",
   "Cl/G-a", "Cl/G-b", "Hil",
-  "Gob-a", "Gob-b", "Gob2",
+  "Gob", "Gob1", "Gob2",
   "Tuf1", "Tuf2", "Nec", "Ion"
 )
 
@@ -233,7 +308,7 @@ nnlm_ksort <- c(
   9, 5, # time points (dense)
   3, 11, 8, 7, # time points
   21, # replicate x TP
-  20, 15, 22, # ciliated
+  15, 22, 20, # ciliated
   24, 12, 19, # prolif
   2, 6, 4, 14, 13, # basal
   25, 17, 23, # club/goblet
@@ -254,7 +329,7 @@ names(nnlm_ksort) <- c(
   "Hil-a", "Hil-b",
   "Tuf",
   "Nec",
-  "Ion"
+  "Ion/Cl/G"
 )
 
 nnlm_dense_k <- 1:4
@@ -303,9 +378,10 @@ tm_ksort <- c(
   10, 4, # Basal/Prolif
   12, # Basal
   3, # Club/Goblet
+  18, # Club/Hillock
   22, # Club
   16, 28, # Hillock/Goblet-progenitor
-  20, 18, # Hillock
+  20, # Hillock
   7, # Goblet-p/1
   2, # Goblet-2
   1, 30 # Tuft-NEC-Ion
@@ -323,8 +399,9 @@ names(tm_ksort) <- c(
   "Prl",
   "B/P-a", "B/P-b",
   "Bas", 
-  "Cl/G", "Club",
-  "H/G-a", "H/G-b", "Hil-a", "Hil-b",
+  "Cl/G", "Cl/Hil", "Club",
+  "H/G-a", "H/G-b", 
+  "Hil", 
   "Gob1", "Gob2",
   "TNI-a", "TNI-b"
 )
@@ -337,13 +414,37 @@ tm_tp_k <- 6:15
 tm_tib <- make_tib(tm_FF, "TPxRep", tm_ksort[tm_tp_k], Inf, 1)
 tm_tp_p <- do_plot(tm_tib, glasbey(11:20), tp_title)
 
-tm_common_k <- c(16, 20:22, 25:26)
+tm_common_k <- c(16, 20, 22:23, 26)
 tm_tib <- make_tib(tm_FF, "CommonType", tm_ksort[tm_common_k], Inf, 1)
-tm_common_p <- do_plot(tm_tib, glasbey(23:29), common_title)
+tm_common_p <- do_plot(tm_tib, glasbey(24:29), common_title)
 
-tm_rare_k <- c(17:19, 23:24, 27:30)
+tm_rare_k <- c(17:19, 21, 24:25, 27:30)
 tm_tib <- make_tib(tm_FF, "CtAbbr", tm_ksort[tm_rare_k], 100, 3)
-tm_rare_p <- do_plot(tm_tib, glasbey(32:40), rare_title)
+tm_rare_p <- do_plot(tm_tib, glasbey(32:41), rare_title)
 
 plot_grid(tm_common_p, tm_rare_p, tm_tp_p, tm_dense_p, nrow = 4, ncol = 1)
 ```
+
+## EBNMF annotations
+
+I use GSEA to do annotations. For each component, I provide as input all genes with loadings that are larger than 0.01 times the maximum loading (for the topic model, 0.001 times the maximum loading). (If all loadings are provided, GSEA will also find gene sets with very small loadings across genes, which is obviously not what we want.) I report the top 5 gene sets with FDR < 0.05 for each component (ties are included), with the restriction that at least one gene set is reported for each factor (even if its FDR is greater than 0.05).
+
+```{r message=FALSE}
+ebnmf_GSEA <- readRDS("output/montoro-ebnmf-gsea.rds")
+make_tbl(ebnmf_GSEA, ebnmf_ksort[c(12:30, 8:11, 4:7, 1:3)])
+```
+
+## NMF annotations 
+
+```{r message=FALSE}
+nmf_GSEA <- readRDS("output/montoro-nmf-gsea.rds")
+make_tbl(nmf_GSEA, nnlm_ksort[c(12:30, 5:11, 1:4)])
+```
+
+## Topic model annotations
+
+```{r message=FALSE}
+tm_GSEA <- readRDS("output/montoro-tm-gsea.rds")
+make_tbl(tm_GSEA, tm_ksort[c(16:30, 6:15, 1:5)])
+```
+
