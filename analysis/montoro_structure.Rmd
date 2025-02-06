@@ -17,7 +17,7 @@ Load the Tidyverse:
 ```{r, message=FALSE}
 library(tidyverse)
 library(cowplot)
-library(gt)
+library(reactable)
 ```
 
 Load the `flashier` results:
@@ -177,65 +177,40 @@ make_tbl <- function(GSEA, ksort) {
   )
 
   keep_res <- GSEA |>
-    # Remove "identical" gene sets (userId lists genes found in set)
     left_join(klabs, by = c("k" = "ksort")) |>
-    group_by(k, userId) |>
-    arrange(FDR) |>
-    slice_head(n = 1) |>
     group_by(k) |>
-    slice_min(FDR, n = 5) |>
     filter(FDR < 0.05 | rank(FDR) == min(rank(FDR))) |>
     ungroup()
 
   shared_genesets <- keep_res |>
-    group_by(geneSet) |>
-    filter(n() > 1) |>
-    ungroup()
-  distinctive_genesets <- keep_res |>
-    anti_join(shared_genesets)
-
-  shared_genesets <- shared_genesets |>
-    group_by(geneSet, description) |>
+    left_join(keep_res |> select(geneSet, shared_by = label),
+              by = "geneSet",
+              relationship = "many-to-many") |>
+    filter(shared_by != label) |>
     arrange(label) |>
-    summarize(components = paste0(label, collapse = ", "),
-              FDR = ifelse(
-                n() < 4,
-                paste(ifelse(FDR < .01, "<.01", round(FDR, 2)), collapse = ", "),
-                paste("all <", round(max(FDR) + 0.005001, 2))
-              ),
-              order1 = label[1], order2 = label[2],
-              .groups = "drop") |>
-    arrange(order1, order2) |>
-    select(-order1, -order2)
-  distinctive_genesets <- distinctive_genesets |>
-    group_by(geneSet, description) |>
-    summarize(components = paste0(label, collapse = ", "),
-              order2 = FDR[1],
-              FDR = paste(ifelse(FDR < .01, "<.01", round(FDR, 2)), collapse = ", "),
-              order1 = label[1],
-              .groups = "drop") |>
-    arrange(order1, order2) |>
-    select(-order1, -order2)
-
-  genesets <- shared_genesets |>
-    bind_rows(distinctive_genesets) |>
-    group_by(components)
-
-  gt_tbl <- gt(genesets) |>
-    #cols_move_to_start(columns = components) |>
-    cols_label(
-      geneSet = "Gene Set",
-      description = "Description",
-      components = "Components"
-    ) |>
-    tab_style(
-      style = cell_text(weight = "bold"),
-      locations = cells_row_groups()
-    ) |>
-    tab_options(
-      table.font.size = 11
-    )
-  return(gt_tbl)
+    group_by(label, geneSet) |>
+    summarize(shared_by = paste(shared_by, collapse = ","))
+  
+  keep_res <- keep_res |>
+    select(label, geneSet, description, FDR) |>
+    left_join(shared_genesets, by = c("label", "geneSet")) |>
+    arrange(label, FDR, description)
+  
+  keep_res <- keep_res |>
+    mutate(FDR = ifelse(FDR < 0.01, "<.01", format(round(FDR, 2), nsmall = 2)))
+  
+  react_tbl <- reactable(
+    keep_res, 
+    columns = list(
+      label = colDef(name = "Component"),
+      geneSet = colDef(name = "Gene Set"),
+      description = colDef(name = "Description"),
+      shared_by = colDef(name = "Shared By")
+    ),
+    groupBy = "label"
+  )
+  
+  return(react_tbl)
 }
 ```
 
