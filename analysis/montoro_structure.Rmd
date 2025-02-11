@@ -18,6 +18,7 @@ Load the Tidyverse:
 library(tidyverse)
 library(cowplot)
 library(reactable)
+library(htmltools)
 ```
 
 Load the `flashier` results:
@@ -169,7 +170,7 @@ glasbey <- function(k) {
 The following function is used to generate tables of gene set annotations:
 
 ```{r}
-make_tbl <- function(GSEA, ksort) {
+make_gene_set_tbl <- function(GSEA, ksort) {
   klabs <- tibble(
     korig = sort(ksort),
     ksort = ksort,
@@ -177,6 +178,7 @@ make_tbl <- function(GSEA, ksort) {
   )
 
   keep_res <- GSEA |>
+    filter(enrichmentScore > 0) |>
     left_join(klabs, by = c("k" = "ksort")) |>
     group_by(k) |>
     filter(FDR < 0.05 | rank(FDR) == min(rank(FDR))) |>
@@ -213,6 +215,85 @@ make_tbl <- function(GSEA, ksort) {
   return(react_tbl)
 }
 ```
+
+And the following is used to make "top gene" tables:
+
+```{r}
+bar_chart <- function(width = "100%", height = "1rem", fill = "#00bfc4", background = NULL) {
+  bar <- div(style = list(background = fill, width = width, height = height))
+  chart <- div(style = list(flexGrow = 1, marginLeft = "0.5rem", background = background), bar)
+  div(style = list(display = "flex", alignItems = "center"), chart)
+}
+
+bar_chart_pos_neg <- function(label, value, max_value = 1, height = "1rem",
+                              pos_fill = "#005ab5", neg_fill = "#dc3220") {
+  neg_chart <- div(style = list(flex = "1 1 0"))
+  pos_chart <- div(style = list(flex = "1 1 0"))
+  width <- paste0(abs(value / max_value) * 100, "%")
+
+  if (value < 0) {
+    bar <- div(style = list(marginLeft = "0.5rem", background = neg_fill, width = width, height = height))
+    chart <- div(
+      style = list(display = "flex", alignItems = "center", justifyContent = "flex-end"),
+      label,
+      bar
+    )
+    neg_chart <- tagAppendChild(neg_chart, chart)
+  } else {
+    bar <- div(style = list(marginRight = "0.5rem", background = pos_fill, width = width, height = height))
+    chart <- div(style = list(display = "flex", alignItems = "center"), bar, label)
+    pos_chart <- tagAppendChild(pos_chart, chart)
+  }
+
+  div(style = list(display = "flex"), neg_chart, pos_chart)
+}
+
+make_top_genes_tbl <- function(LL, ksort, gene_names, top_n = 30) {
+  LL <- t(t(LL) / apply(LL, 2, max)) # Scale so maximum loading for each k is 1
+  LL <- LL[, ksort]
+  colnames(LL) <- names(ksort)
+  LL_tib <- as_tibble(LL) |>
+    mutate(Gene = gene_names) |>
+    pivot_longer(-Gene, names_to = "Component", values_to = "Loading") |>
+    mutate(Component = factor(Component, levels = names(ksort))) |>
+    group_by(Gene) |>
+    mutate(Uniqueness = log10(Loading) - log10(sort(Loading, decreasing = TRUE)[2]))
+  
+  shared_genes <- LL_tib |>
+    left_join(LL_tib |> select(Gene, OtherLoading = Loading, SharedBy = Component),
+              by = join_by(Gene == Gene, Loading < OtherLoading),
+              relationship = "many-to-many") |>
+    filter(SharedBy != Component) |>
+    arrange(Component) |>
+    group_by(Component, Gene) |>
+    summarize(SharedBy = paste(SharedBy, collapse = ", "))
+  
+  top_genes <- LL_tib |>
+    group_by(Component) |>
+    slice_max(Loading, n = top_n) |>
+    left_join(shared_genes, by = c("Component", "Gene")) |>
+    ungroup()
+
+  react_tbl <- reactable(
+    top_genes, 
+    columns = list(
+      Loading = colDef(name = "Loading", align = "right", cell = function(value) {
+        width <- paste0(value * 100, "%")
+        bar_chart(width = width, background = "#e1e1e1")
+      }),
+      Uniqueness = colDef(name = "Uniqueness", align = "center", cell = function(value) {
+        label <- "" # round(exp(value), 1)
+        bar_chart_pos_neg(label, value)
+      }),
+      SharedBy = colDef(name = "Larger In")
+    ),
+    groupBy = "Component"
+  )
+
+  return(react_tbl)
+}
+```
+
 
 
 ## EBNMF
@@ -400,26 +481,31 @@ tm_rare_p <- do_plot(tm_tib, glasbey(32:41), rare_title)
 plot_grid(tm_common_p, tm_rare_p, tm_tp_p, tm_dense_p, nrow = 4, ncol = 1)
 ```
 
-## EBNMF annotations
+## EBNMF annotations and top genes
 
-I use GSEA to do annotations. For each component, I provide as input all genes with loadings that are larger than 0.01 times the maximum loading (for the topic model, 0.001 times the maximum loading). (If all loadings are provided, GSEA will also find gene sets with very small loadings across genes, which is obviously not what we want.) I report the top 5 gene sets with FDR < 0.05 for each component (ties are included), with the restriction that at least one gene set is reported for each factor (even if its FDR is greater than 0.05).
+The first table provides gene set annotations. I use GSEA. For each component, I provide as input all genes with loadings that are larger than 0.01 times the maximum loading (for the topic model, 0.001 times the maximum loading). I report the top ten gene sets with FDR < 0.05 for each component (ties are included), with the restriction that at least one gene set is reported for each factor (even if its FDR is greater than 0.05).
+
+The second table lists the 30 largest gene loadings for each component. "Uniqueness" is measured as the log ratio of the gene loading to the second-largest loading across all components. If a gene loading is large in only one component, its "uniqueness" will be positive and large for that component (positive values are shown as blue bars). If it is larger in exactly one component, its uniqueness will be equal to 0. If it is larger in more than one component, its uniqueness will be negative (shown as a red bar).
 
 ```{r message=FALSE}
 ebnmf_GSEA <- readRDS("output/montoro-ebnmf-gsea.rds")
-make_tbl(ebnmf_GSEA, ebnmf_ksort[c(12:30, 8:11, 4:7, 1:3)])
+make_gene_set_tbl(ebnmf_GSEA, ebnmf_ksort[c(12:30, 8:11, 4:7, 1:3)])
+make_top_genes_tbl(ebnmf$fit$L.pm, ebnmf_ksort[c(12:30, 8:11, 4:7, 1:3)], rownames(ebnmf$fit$L.pm))
 ```
 
-## NMF annotations 
+## NMF annotations and top genes
 
 ```{r message=FALSE}
 nmf_GSEA <- readRDS("output/montoro-nmf-gsea.rds")
-make_tbl(nmf_GSEA, nnlm_ksort[c(12:30, 5:11, 1:4)])
+make_gene_set_tbl(nmf_GSEA, nnlm_ksort[c(12:30, 5:11, 1:4)])
+make_top_genes_tbl(nnlm$fit$w, nnlm_ksort[c(12:30, 5:11, 1:4)], rownames(ebnmf$fit$L.pm))
 ```
 
-## Topic model annotations
+## Topic model annotations and top genes
 
 ```{r message=FALSE}
 tm_GSEA <- readRDS("output/montoro-tm-gsea.rds")
-make_tbl(tm_GSEA, tm_ksort[c(16:30, 6:15, 1:5)])
+make_gene_set_tbl(tm_GSEA, tm_ksort[c(16:30, 6:15, 1:5)])
+make_top_genes_tbl(tm_fit$F, tm_ksort[c(16:30, 6:15, 1:5)], rownames(ebnmf$fit$L.pm))
 ```
 
