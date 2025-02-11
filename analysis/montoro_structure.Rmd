@@ -17,6 +17,7 @@ Load the Tidyverse:
 ```{r, message=FALSE}
 library(tidyverse)
 library(cowplot)
+library(ggrepel)
 library(reactable)
 library(htmltools)
 ```
@@ -191,7 +192,7 @@ make_gene_set_tbl <- function(GSEA, ksort) {
     filter(shared_by != label) |>
     arrange(label) |>
     group_by(label, geneSet) |>
-    summarize(shared_by = paste(shared_by, collapse = ","))
+    summarize(shared_by = paste(shared_by, collapse = ", "))
   
   keep_res <- keep_res |>
     select(label, geneSet, description, FDR) |>
@@ -282,7 +283,7 @@ make_top_genes_tbl <- function(LL, ksort, gene_names, top_n = 30) {
         bar_chart(width = width, background = "#e1e1e1")
       }),
       Uniqueness = colDef(name = "Uniqueness", align = "center", cell = function(value) {
-        label <- "" # round(exp(value), 1)
+        label <- round(value, 2)
         bar_chart_pos_neg(label, value)
       }),
       SharedBy = colDef(name = "Larger In")
@@ -485,7 +486,7 @@ plot_grid(tm_common_p, tm_rare_p, tm_tp_p, tm_dense_p, nrow = 4, ncol = 1)
 
 The first table provides gene set annotations. I use GSEA. For each component, I provide as input all genes with loadings that are larger than 0.01 times the maximum loading (for the topic model, 0.001 times the maximum loading). I report the top ten gene sets with FDR < 0.05 for each component (ties are included), with the restriction that at least one gene set is reported for each factor (even if its FDR is greater than 0.05).
 
-The second table lists the 30 largest gene loadings for each component. "Uniqueness" is measured as the log ratio of the gene loading to the second-largest loading across all components. If a gene loading is large in only one component, its "uniqueness" will be positive and large for that component (positive values are shown as blue bars). If it is larger in exactly one component, its uniqueness will be equal to 0. If it is larger in more than one component, its uniqueness will be negative (shown as a red bar).
+The second table lists the 30 largest gene loadings for each component. "Uniqueness" is measured as the log ratio of the gene loading to the second-largest loading across all (l1-normalized) components. If a gene loading is large in only one component, its "uniqueness" will be positive and large for that component (positive values are shown as blue bars). If it is larger in exactly one component, its uniqueness will be equal to 0. If it is larger in more than one component, its uniqueness will be negative (shown as a red bar).
 
 ```{r message=FALSE}
 ebnmf_GSEA <- readRDS("output/montoro-ebnmf-gsea.rds")
@@ -509,3 +510,26 @@ make_gene_set_tbl(tm_GSEA, tm_ksort[c(16:30, 6:15, 1:5)])
 make_top_genes_tbl(tm_fit$F, tm_ksort[c(16:30, 6:15, 1:5)], rownames(ebnmf$fit$L.pm))
 ```
 
+## Tuft-1 vs Tuft-2
+
+EBNMF is the only method that picks up the difference between Tuft-1 and Tuft-2 cells. However, the structure plots suggest that the difference might better be understood as a gradient between two extremes rather than a binary distinction.
+
+Montoro et al. characterize the Tuft-1 subset as more strongly expressing genes associated with taste transduction, while the Tuft-2 subset is characterized as more strongly expressing inflammatory genes (see Montoro et al. (2018), Figure 4). 
+
+The top "unique" genes listed above for each component are similar to the genes highlighted in the paper: Gnb3, Gng13, Fxyd6, and Ovol3 for Tuft-1; and Alox5ap and Dclk1 for Tuft-2. A more direct comparison of loadings in the "Tuf1" and "Tuf2" components picks up other highlighted genes, including Gnat3 for Tuft-1 and Mgst3 for Tuft-2:
+
+```{r}
+tuft_LL <- ebnmf$fit$L.pm[, ebnmf_ksort[c("Tuf1", "Tuf2")]]
+tuft_LL <- t(t(tuft_LL) / apply(tuft_LL, 2, max))
+tuft_tib <- tibble(
+  Gene = rownames(tuft_LL),
+  Tuf1 = tuft_LL[, 1],
+  Tuf2 = tuft_LL[, 2],
+  Label = ifelse(abs(Tuf1 - Tuf2) > 0.22, Gene, "")
+) 
+ggplot(tuft_tib, aes(Tuf1, Tuf2)) +
+  theme_minimal() +
+  geom_point(size = 0.5) +
+  geom_text_repel(aes(label = Label), size = 2, min.segment.length = 0) +
+  scale_fill_gradient(trans = "log10")
+```
