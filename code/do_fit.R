@@ -16,6 +16,8 @@ do_fit <- function(datfile, method, K, select.genes, outfile) {
     return(fit_ebmf(datfile, K, select.genes, outfile, link = "log"))
   } else if (method == "ebmf-identity") {
     return(fit_ebmf(datfile, K, select.genes, outfile, link = "identity"))
+  } else if (method == "glmpca") {
+    return(fit_glmpca(datfile, K, select.genes, outfile))
   }
 }
 
@@ -80,6 +82,26 @@ fit_fasttopics <- function(datfile, K, select.genes, outfile) {
   saveRDS(list(t = t1 - t0, fit = fit), outfile)
 }
 
+fit_glmpca <- function(datfile, K, select.genes, outfile) {
+  pp.dat <- readRDS(datfile)
+
+  if (select.genes) {
+    dat <- pp.dat$counts[pp.dat$var.genes, ]
+  } else {
+    dat <- pp.dat$counts
+  }
+
+  rm(pp.dat)
+  dat <- as(dat, "CsparseMatrix")
+
+  t0 <- Sys.time()
+  fit0 <- fastglmpca::init_glmpca_pois(dat, K = K)
+  fit <- fastglmpca::fit_glmpca_pois(dat, fit0 = fit0)
+  t1 <- Sys.time()
+
+  saveRDS(list(t = t1 - t0, fit = fit), outfile)
+}
+
 fit_pcmf <- function(datfile, K, select.genes, outfile) {
   pp.dat <- readRDS(datfile)
 
@@ -110,33 +132,28 @@ fit_ebmf <- function(datfile, K, select.genes, outfile, link) {
 
   t0 <- Sys.time()
 
-  ebnm.fn = ebnm::ebnm_point_exponential
-  init.fn = function(f) init.fn.default(f, dim.signs = c(1, 1))
-
-  fl <- flash.init(dat, S = min.sd, var.type = 1) %>%
-    flash.add.greedy(
+  fl <- flash_init(dat, S = min.sd, var_type = 1) |>
+    flash_greedy(
       Kmax = min(K, 10),
-      ebnm.fn = ebnm.fn,
-      init.fn = init.fn
+      ebnm_fn = ebnm::ebnm_point_exponential
     )
 
-  while (fl$n.factors < K) {
-    fl <- fl %>%
-      flash.backfit(maxiter = 10, verbose = 3) %>%
-      flash.add.greedy(
-        Kmax = min(K - fl$n.factors, 10),
-        ebnm.fn = ebnm.fn,
-        init.fn = init.fn,
+  while (fl$n_factors < K) {
+    fl <- fl |>
+      flash_backfit(maxiter = 10, verbose = 3) |>
+      flash_greedy(
+        Kmax = min(K - fl$n_factors, 10),
+        ebnm_fn = ebnm::ebnm_point_exponential,
         verbose = 1
       )
   }
 
-  fl <- fl %>%
-    flash.backfit(maxiter = maxiter, verbose = 3)
+  fl <- fl |>
+    flash_backfit(maxiter = maxiter, verbose = 3)
 
   t1 <- Sys.time()
 
-  fl <- flash.reorder.factors(fl, c(1, order(fl$pve[-1], decreasing = TRUE) + 1))
+  fl <- flash_factors_reorder(fl, c(1, order(fl$pve[-1], decreasing = TRUE) + 1))
   fl$sampler <- NULL
   fl$flash.fit <- NULL
 

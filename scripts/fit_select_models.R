@@ -24,3 +24,5 @@ do_ps_fit(method = "fasttopics", K = 40, outfile = "../output/ps-topics-40.rds")
 do_montoro_fit(method = "nmf-log",    K = 30, outfile = "../output/montoro-nmf.rds")
 do_montoro_fit(method = "ebmf-log",   K = 30, outfile = "../output/montoro-ebmf.rds")
 do_montoro_fit(method = "fasttopics", K = 30, outfile = "../output/montoro-topics.rds")
+do_montoro_fit(method = "glmpca",     K = 30, outfile = "../output/montoro-glmpca.rds")
+
