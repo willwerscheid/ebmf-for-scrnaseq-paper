@@ -15,6 +15,6 @@ preprocess <- function(dat, min.nzcts = 10) {
     counts = dat,
     sf = size.factors,
     pc = pc,
-    var.genes = intersect(liger.dat@var.genes, rownames(dat))
+    var.genes = intersect(liger.dat@varFeatures, rownames(dat))
   ))
 }
